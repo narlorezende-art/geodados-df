@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>GeoDados DF</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/cesium/Widgets/widgets.css">
+<link rel="stylesheet" href="/app.css">
+<script>window.CESIUM_BASE_URL = "/cesium/";</script>
+<script src="/cesium/Cesium.js" defer></script>
+<script src="/app.js" defer></script>
+</head>
+<body>
+<div id="map" aria-label="Mapa 3D dos equipamentos"></div>
+
+<aside class="panel" id="panel" aria-label="Filtros e lista">
+  <div class="sheet-handle" id="sheetHandle">
+    <button type="button" class="handle-btn" id="sheetToggle" aria-expanded="false" aria-controls="panelBody">
+      <span class="handle-bar" aria-hidden="true"></span>
+      <span><b id="handleCount">407</b> equipamentos · Filtros</span>
+    </button>
+  </div>
+
+  <header class="p-head">
+    <div class="eyebrow">GeoDados DF</div>
+    <div class="p-title-row">
+      <h1>Fiscalização eletrônica</h1>
+      <a class="logout" href="/logout" title="Encerrar sessão"><span id="whoami">sair</span> · Sair</a>
+    </div>
+  </header>
+
+  <div class="p-body" id="panelBody">
+    <section class="summary" aria-live="polite">
+      <div class="big"><span id="visCount" class="num">407</span><span class="of">de <span id="totCount">407</span> equipamentos no mapa</span></div>
+      <div class="share" id="shareBar" role="img" aria-label="Participação por tipo"></div>
+    </section>
+
+    <section class="group">
+      <div class="g-head"><h2>Tipo de equipamento</h2></div>
+      <div class="types" id="typeChips"></div>
+    </section>
+
+    <section class="group">
+      <label class="search" for="q">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+        <input id="q" type="search" placeholder="Buscar ID, via, quadra…  ( / )" autocomplete="off">
+      </label>
+    </section>
+
+    <section class="group">
+      <div class="g-head"><h2>Sentido da via</h2></div>
+      <div class="chips" id="dirChips"></div>
+    </section>
+
+    <section class="group">
+      <div class="g-head">
+        <h2>Região Administrativa</h2>
+        <div class="g-actions"><button type="button" id="raAll">Todas</button><button type="button" id="raNone">Nenhuma</button></div>
+      </div>
+      <ul class="ra-list" id="raList"></ul>
+    </section>
+
+    <section class="group">
+      <div class="g-head">
+        <h2>Lista <span class="muted" id="listCount"></span></h2>
+        <div class="g-actions"><button type="button" id="exportCsv">Exportar CSV</button></div>
+      </div>
+      <ul class="results" id="results"></ul>
+    </section>
+
+    <footer class="p-foot">Fonte: planilha de localização dos equipamentos eletrônicos (407 registros, 20 RAs). Coordenadas em WGS 84.</footer>
+  </div>
+</aside>
+
+<div class="toolbar" role="toolbar" aria-label="Controles do mapa">
+  <div class="seg" id="baseSeg" role="radiogroup" aria-label="Mapa base">
+    <button type="button" data-base="sat" aria-pressed="true">Satélite</button>
+    <button type="button" data-base="hib" aria-pressed="false">Híbrido</button>
+    <button type="button" data-base="ruas" aria-pressed="false">Ruas</button>
+    <button type="button" data-base="escuro" aria-pressed="false">Escuro</button>
+  </div>
+  <div class="seg">
+    <button type="button" id="btn3d" aria-pressed="false" title="Prédios e relevo 3D">Prédios 3D</button>
+    <button type="button" id="btnTilt" aria-pressed="true" title="Alternar entre vista inclinada e vista de cima">Inclinada</button>
+    <button type="button" id="btnCluster" aria-pressed="false" title="Agrupar pontos próximos">Agrupar</button>
+    <button type="button" id="btnFit" title="Enquadrar os equipamentos filtrados">Enquadrar</button>
+  </div>
+</div>
+
+<div class="tip" id="tip" hidden></div>
+
+<article class="card" id="card" hidden aria-live="polite">
+  <button type="button" class="card-x" id="cardClose" aria-label="Fechar">×</button>
+  <div class="card-top">
+    <span class="card-id" id="cId"></span>
+    <span class="pill" id="cType"></span>
+  </div>
+  <p class="card-addr" id="cAddr"></p>
+  <dl class="card-dl">
+    <div><dt>RA</dt><dd id="cRa"></dd></div>
+    <div><dt>Sentido</dt><dd id="cDir"></dd></div>
+    <div class="wide"><dt>Coordenadas</dt><dd><span class="mono" id="cXY"></span> <button type="button" class="copy" id="cCopy">Copiar</button></dd></div>
+  </dl>
+  <div class="card-links">
+    <a id="lSv" target="_blank" rel="noopener">Street View</a>
+    <a id="lGm" target="_blank" rel="noopener">Google Maps</a>
+    <a id="lGe" target="_blank" rel="noopener">Google Earth</a>
+  </div>
+</article>
+
+<div class="toast" id="toast" hidden></div>
+<div class="loading" id="loading">Carregando o globo…</div>
+</body>
+</html>

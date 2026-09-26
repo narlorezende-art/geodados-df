@@ -1,0 +1,22 @@
+# Blueprint do Render: New → Blueprint → escolha este repositório
+services:
+  - type: web
+    name: geodados-df
+    runtime: python
+    plan: free
+    region: virginia
+    buildCommand: pip install -r requirements.txt && python baixar_cesium.py
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /saude
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: SESSION_SECRET
+        generateValue: true      # o Render cria um valor aleatório
+      - key: USERS
+        sync: false              # o Render pede o valor na criação
+      - key: GOOGLE_MAPS_KEY
+        sync: false              # opcional: deixe em branco se não tiver
+      - key: CESIUM_ION_TOKEN
+        sync: false              # opcional

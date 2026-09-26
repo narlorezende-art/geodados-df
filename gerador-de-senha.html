@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GeoDados DF · Gerador de senha</title>
+<style>
+  :root{--bg:#EEF1F2;--card:#fff;--ink:#16202A;--muted:#5B6873;--line:#D5DCE0;--focus:#2B7FC4;--ok:#1E7A45;--err:#B3261E;color-scheme:light}
+  @media (prefers-color-scheme:dark){:root{--bg:#0B1014;--card:#141A1F;--ink:#E7ECEF;--muted:#93A1AC;--line:#26313A;--focus:#4A90E0;--ok:#6FCF97;--err:#F2B8B5;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px}
+  main{max-width:620px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:16px}
+  h1{margin:0;font-size:22px}
+  p{margin:0;color:var(--muted)}
+  label{display:grid;gap:6px;font-weight:600;font-size:13px}
+  input,textarea{font:15px system-ui,sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+  input:focus,textarea:focus{outline:none;border-color:var(--focus)}
+  textarea{font-family:ui-monospace,Consolas,monospace;font-size:13px;min-height:96px;resize:vertical}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{font:600 14px system-ui,sans-serif;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;background:var(--ink);color:var(--card)}
+  button.sec{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .msg{font-size:14px;min-height:1.5em}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)}
+  ol{margin:0;padding-left:20px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Gerador de senha protegida</h1>
+  <p>A senha é transformada em hash aqui no seu navegador e não é enviada para lugar nenhum. O resultado vai na variável <b>USERS</b> do Render.</p>
+
+  <label for="u">Usuário
+    <input id="u" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="ex.: narlo">
+  </label>
+  <label for="p">Senha (mínimo de 10 caracteres)
+    <input id="p" type="password" autocomplete="new-password">
+  </label>
+  <label for="p2">Repita a senha
+    <input id="p2" type="password" autocomplete="new-password">
+  </label>
+  <div class="row">
+    <button id="gerar" type="button">Gerar e adicionar à lista</button>
+  </div>
+  <div class="msg" id="msg" role="status"></div>
+
+  <label for="out">Valor para colar em USERS no Render
+    <textarea id="out" readonly placeholder="As linhas geradas aparecem aqui, separadas por ;"></textarea>
+  </label>
+  <div class="row">
+    <button id="copiar" type="button">Copiar</button>
+    <button id="limpar" type="button" class="sec">Limpar lista</button>
+  </div>
+  <ol>
+    <li>Gere uma linha para cada pessoa. Elas vão sendo juntadas com <code>;</code>.</li>
+    <li>Clique em Copiar e cole no campo USERS do Render.</li>
+    <li>Guarde as senhas num lugar seguro. O hash não permite recuperá-las.</li>
+  </ol>
+</main>
+<script>
+const ITER = 600000;
+const $ = (id) => document.getElementById(id);
+const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+async function gerarHash(senha) {
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const chave = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: sal, iterations: ITER }, chave, 256);
+  return `pbkdf2_sha256$${ITER}$${b64url(sal)}$${b64url(bits)}`;
+}
+
+function aviso(texto, tipo) { const m = $("msg"); m.textContent = texto; m.className = "msg " + (tipo || ""); }
+
+$("gerar").onclick = async () => {
+  const u = $("u").value.trim().toLowerCase(), p = $("p").value, p2 = $("p2").value;
+  if (!u) return aviso("Informe o nome de usuário.", "err");
+  if (/[:;\s]/.test(u)) return aviso("O usuário não pode ter espaço, ':' nem ';'.", "err");
+  if (p.length < 10) return aviso("A senha precisa ter pelo menos 10 caracteres.", "err");
+  if (p !== p2) return aviso("As duas senhas não são iguais.", "err");
+  if (!window.crypto || !crypto.subtle) return aviso("Este navegador não permite gerar o hash. Use Chrome, Edge ou Firefox atualizados.", "err");
+  aviso("Gerando…");
+  const linha = `${u}:${await gerarHash(p)}`;
+  const atuais = $("out").value.split(";").map((s) => s.trim()).filter((s) => s && !s.startsWith(u + ":"));
+  $("out").value = [...atuais, linha].join(";");
+  $("p").value = $("p2").value = "";
+  aviso(`Usuário "${u}" adicionado. Gere outro ou copie a lista.`, "ok");
+};
+
+$("copiar").onclick = async () => {
+  const t = $("out");
+  if (!t.value) return aviso("Gere pelo menos um usuário antes de copiar.", "err");
+  try { await navigator.clipboard.writeText(t.value); aviso("Copiado. Agora cole no campo USERS do Render.", "ok"); }
+  catch { t.select(); aviso("Texto selecionado. Pressione Ctrl+C para copiar.", "ok"); }
+};
+$("limpar").onclick = () => { $("out").value = ""; aviso(""); };
+</script>
+</body>
+</html>

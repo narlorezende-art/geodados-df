@@ -1,5 +1,7 @@
 # GeoDados DF
 
+**Camadas do painel:** Medidores de Velocidade (Controlador, Redutor, Não metrológico) · Previsão do tempo (Chuva, Temperatura, com barra de 48 h) · Mapa base (Satélite, Híbrido, Ruas, Escuro — Esri, sem chave). O painel é rebatível (botão ‹) e tem transparência ajustável: fica translúcido em repouso e sólido com o mouse em cima.
+
 Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido por login e senha.
 
 ## Linguagens
@@ -8,6 +10,7 @@ Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido 
 |---|---|---|
 | Servidor, login e sessões | **Python** (FastAPI) | `main.py`, `seguranca.py` |
 | Leitura e limpeza da planilha | **Python** | `dados.py` (lê o `equipamentos.csv` direto, sem conversão manual) |
+| Previsão do tempo (Chuva e Temperatura) | **Python** | `clima.py` (Open-Meteo, grade sobre o DF, cache de 1 h) |
 | Scripts de apoio | **Python** | `criar_usuario.py`, `baixar_cesium.py` |
 | Testes | **Python** (pytest) | `test_app.py` |
 | Mapa 3D no navegador | JavaScript (CesiumJS) | `index.html`, `app.js`, `app.css` |
@@ -84,3 +87,15 @@ Na leitura do CSV, o servidor faz três ajustes:
 - extrai o sentido da via. Os sentidos Norte/Sul, Sul/Norte, Leste/Oeste e Oeste/Leste viram filtro. Os demais, como "Rodoferroviária/Esplanada" ou sem sentido informado, entram em "Outro / via nomeada".
 
 O arquivo original não é alterado. O CSV pode usar `,` ou `;` como separador.
+
+## Previsão do tempo
+
+- **Fonte:** Open-Meteo, gratuita e sem chave para uso não comercial.
+- **Cobertura:** o servidor busca uma grade de 96 pontos (cerca de 9 km entre eles) sobre o DF, com previsão hora a hora para 48 h, e guarda o resultado por 1 hora.
+- **Camadas:**
+  - Chuva, em mm por hora. Só aparece onde há chuva prevista.
+  - Temperatura, em °C.
+  - Ambas têm liga/desliga, opacidade e legenda próprios.
+- **Barra de tempo:** arraste para ver as próximas horas, ou use ▶ para animar.
+- **Consulta no mapa:** ao passar o mouse, a barra inferior mostra a temperatura e a chuva naquele ponto. A ficha de cada medidor também mostra a previsão no local.
+- **Se a fonte falhar:** o painel mostra a última previsão obtida e avisa que ela está desatualizada.

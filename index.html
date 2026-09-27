@@ -8,7 +8,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
 <link rel="stylesheet" href="/app.css">
 <script>window.CESIUM_BASE_URL = "/cesium/";</script>
@@ -16,88 +16,157 @@
 <script src="/app.js" defer></script>
 </head>
 <body>
-<div id="map" aria-label="Mapa 3D dos equipamentos"></div>
+<div id="map" aria-label="Globo 3D do Distrito Federal"></div>
+<div class="vignette" aria-hidden="true"></div>
 
-<aside class="panel" id="panel" aria-label="Filtros e lista">
-  <div class="sheet-handle" id="sheetHandle">
-    <button type="button" class="handle-btn" id="sheetToggle" aria-expanded="false" aria-controls="panelBody">
-      <span class="handle-bar" aria-hidden="true"></span>
-      <span><b id="handleCount">407</b> equipamentos · Filtros</span>
+<!-- barra superior -->
+<header class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span>GEODADOS<span class="sl">//</span>DF</div>
+  <div class="tb-chips">
+    <span class="tb-chip"><i class="live" aria-hidden="true"></i><b id="visTop">407</b> medidores</span>
+    <span class="tb-chip mono" id="clockBrt">--:--:-- BRT</span>
+    <span class="tb-chip mono dim" id="clockUtc">--:-- UTC</span>
+  </div>
+  <div class="tb-user"><span id="whoami">—</span><a href="/logout">Sair</a></div>
+</header>
+
+<!-- painel lateral -->
+<aside class="panel" id="panel" aria-label="Camadas e filtros">
+  <div class="p-head">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="camadas" aria-selected="true">Camadas</button>
+      <button type="button" role="tab" data-tab="filtros" aria-selected="false">Filtros</button>
+      <button type="button" role="tab" data-tab="lista" aria-selected="false">Lista <span id="listCount" class="mono"></span></button>
+    </div>
+    <button type="button" class="collapse" id="panelClose" title="Recolher painel" aria-label="Recolher painel">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>
     </button>
   </div>
 
-  <header class="p-head">
-    <div class="eyebrow">GeoDados DF</div>
-    <div class="p-title-row">
-      <h1>Fiscalização eletrônica</h1>
-      <a class="logout" href="/logout" title="Encerrar sessão"><span id="whoami">sair</span> · Sair</a>
-    </div>
-  </header>
+  <div class="p-body">
+    <!-- ============ CAMADAS ============ -->
+    <section class="tabpane" data-pane="camadas">
+      <div class="layer-group" id="grpMedidores">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="true" aria-controls="subMedidores" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Medidores de Velocidade</span>
+          <span class="lg-count mono" id="cntMedidores">407</span>
+          <label class="switch" title="Mostrar ou ocultar todos"><input type="checkbox" id="swMedidores" checked><span></span></label>
+        </div>
+        <div class="sublayers" id="subMedidores"></div>
+      </div>
 
-  <div class="p-body" id="panelBody">
-    <section class="summary" aria-live="polite">
-      <div class="big"><span id="visCount" class="num">407</span><span class="of">de <span id="totCount">407</span> equipamentos no mapa</span></div>
-      <div class="share" id="shareBar" role="img" aria-label="Participação por tipo"></div>
+      <div class="layer-group" id="grpClima">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="true" aria-controls="subClima" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Previsão do tempo</span>
+          <span class="lg-count mono" id="climaStatus">…</span>
+        </div>
+        <div class="sublayers" id="subClima">
+          <div class="wx" data-wx="chuva">
+            <div class="wx-row">
+              <span class="wx-ico" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M5.5 12.5a3.5 3.5 0 0 1 .4-7 4.5 4.5 0 0 1 8.4 1.2 3 3 0 0 1-.3 5.8z"/><path d="M7 15l-1 2.5M10.5 15l-1 2.5M14 15l-1 2.5"/></svg></span>
+              <span class="wx-name">Chuva<small>mm por hora</small></span>
+              <label class="switch"><input type="checkbox" id="swChuva"><span></span></label>
+            </div>
+            <div class="wx-extra">
+              <div class="ramp" id="rampChuva"></div>
+              <label class="op"><span>Opacidade</span><input type="range" id="opChuva" min="10" max="100" value="70"></label>
+            </div>
+          </div>
+          <div class="wx" data-wx="temp">
+            <div class="wx-row">
+              <span class="wx-ico" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M8 3.5a2 2 0 0 1 4 0v7.3a4 4 0 1 1-4 0z"/><path d="M10 7v6"/></svg></span>
+              <span class="wx-name">Temperatura<small>°C a 2 m do solo</small></span>
+              <label class="switch"><input type="checkbox" id="swTemp"><span></span></label>
+            </div>
+            <div class="wx-extra">
+              <div class="ramp" id="rampTemp"></div>
+              <label class="op"><span>Opacidade</span><input type="range" id="opTemp" min="10" max="100" value="65"></label>
+            </div>
+          </div>
+          <div class="timebar">
+            <button type="button" id="wxPlay" class="play" aria-label="Animar previsão"><svg viewBox="0 0 16 16"><path d="M5 3.5v9l7-4.5z"/></svg></button>
+            <div class="tb-slider">
+              <div class="tb-label"><b id="wxWhen" class="mono">—</b><span id="wxRel" class="dim"></span></div>
+              <input type="range" id="wxHour" min="0" max="47" value="0" aria-label="Hora da previsão">
+            </div>
+          </div>
+          <p class="wx-note dim" id="wxNote">Fonte: Open-Meteo · grade de ~9 km sobre o DF</p>
+        </div>
+      </div>
+
+      <div class="layer-group">
+        <div class="lg-head"><span class="lg-title pad">Mapa base</span></div>
+        <div class="seg" id="baseSeg" role="radiogroup" aria-label="Mapa base">
+          <button type="button" data-base="sat" aria-pressed="true">Satélite</button>
+          <button type="button" data-base="hib" aria-pressed="false">Híbrido</button>
+          <button type="button" data-base="ruas" aria-pressed="false">Ruas</button>
+          <button type="button" data-base="escuro" aria-pressed="false">Escuro</button>
+        </div>
+      </div>
+
+      <div class="layer-group">
+        <div class="lg-head"><span class="lg-title pad">Visualização</span></div>
+        <div class="seg">
+          <button type="button" id="btn3d" aria-pressed="false">Prédios 3D</button>
+          <button type="button" id="btnTilt" aria-pressed="true">Inclinada</button>
+          <button type="button" id="btnCluster" aria-pressed="false">Agrupar</button>
+          <button type="button" id="btnFit">Enquadrar</button>
+        </div>
+      </div>
     </section>
 
-    <section class="group">
-      <div class="g-head"><h2>Tipo de equipamento</h2></div>
-      <div class="types" id="typeChips"></div>
-    </section>
-
-    <section class="group">
+    <!-- ============ FILTROS ============ -->
+    <section class="tabpane" data-pane="filtros" hidden>
+      <div class="summary">
+        <div class="big"><span id="visCount" class="num mono">407</span><span class="of">de <span id="totCount">407</span> medidores visíveis</span></div>
+        <div class="share" id="shareBar" role="img" aria-label="Participação por tipo"></div>
+      </div>
       <label class="search" for="q">
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
         <input id="q" type="search" placeholder="Buscar ID, via, quadra…  ( / )" autocomplete="off">
       </label>
-    </section>
-
-    <section class="group">
-      <div class="g-head"><h2>Sentido da via</h2></div>
-      <div class="chips" id="dirChips"></div>
-    </section>
-
-    <section class="group">
-      <div class="g-head">
-        <h2>Região Administrativa</h2>
-        <div class="g-actions"><button type="button" id="raAll">Todas</button><button type="button" id="raNone">Nenhuma</button></div>
+      <div class="f-group">
+        <h3>Sentido da via</h3>
+        <div class="chips" id="dirChips"></div>
       </div>
-      <ul class="ra-list" id="raList"></ul>
+      <div class="f-group">
+        <div class="f-head"><h3>Região Administrativa</h3><div class="links"><button type="button" id="raAll">Todas</button><button type="button" id="raNone">Nenhuma</button></div></div>
+        <ul class="ra-list" id="raList"></ul>
+      </div>
     </section>
 
-    <section class="group">
-      <div class="g-head">
-        <h2>Lista <span class="muted" id="listCount"></span></h2>
-        <div class="g-actions"><button type="button" id="exportCsv">Exportar CSV</button></div>
-      </div>
+    <!-- ============ LISTA ============ -->
+    <section class="tabpane" data-pane="lista" hidden>
+      <div class="f-head"><h3>Medidores filtrados</h3><div class="links"><button type="button" id="exportCsv">Exportar CSV</button></div></div>
       <ul class="results" id="results"></ul>
     </section>
+  </div>
 
-    <footer class="p-foot">Fonte: planilha de localização dos equipamentos eletrônicos (407 registros, 20 RAs). Coordenadas em WGS 84.</footer>
+  <div class="p-foot">
+    <label class="op" for="panelAlpha"><span>Transparência do painel</span><input type="range" id="panelAlpha" min="20" max="100" value="55"></label>
   </div>
 </aside>
 
-<div class="toolbar" role="toolbar" aria-label="Controles do mapa">
-  <div class="seg" id="baseSeg" role="radiogroup" aria-label="Mapa base">
-    <button type="button" data-base="sat" aria-pressed="true">Satélite</button>
-    <button type="button" data-base="hib" aria-pressed="false">Híbrido</button>
-    <button type="button" data-base="ruas" aria-pressed="false">Ruas</button>
-    <button type="button" data-base="escuro" aria-pressed="false">Escuro</button>
-  </div>
-  <div class="seg">
-    <button type="button" id="btn3d" aria-pressed="false" title="Prédios e relevo 3D">Prédios 3D</button>
-    <button type="button" id="btnTilt" aria-pressed="true" title="Alternar entre vista inclinada e vista de cima">Inclinada</button>
-    <button type="button" id="btnCluster" aria-pressed="false" title="Agrupar pontos próximos">Agrupar</button>
-    <button type="button" id="btnFit" title="Enquadrar os equipamentos filtrados">Enquadrar</button>
-  </div>
-</div>
+<button type="button" class="rail" id="panelOpen" hidden aria-label="Abrir painel">
+  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg><span>Camadas</span>
+</button>
+
+<!-- barra de status -->
+<footer class="statusbar mono">
+  <span id="sbPos">LAT —  LON —</span>
+  <span id="sbAlt">ALT —</span>
+  <span id="sbWx" class="sb-wx"></span>
+  <span class="sb-src dim">Satélite Esri · Clima Open-Meteo · Motor CesiumJS</span>
+</footer>
 
 <div class="tip" id="tip" hidden></div>
 
 <article class="card" id="card" hidden aria-live="polite">
   <button type="button" class="card-x" id="cardClose" aria-label="Fechar">×</button>
   <div class="card-top">
-    <span class="card-id" id="cId"></span>
+    <span class="card-id mono" id="cId"></span>
     <span class="pill" id="cType"></span>
   </div>
   <p class="card-addr" id="cAddr"></p>
@@ -105,6 +174,7 @@
     <div><dt>RA</dt><dd id="cRa"></dd></div>
     <div><dt>Sentido</dt><dd id="cDir"></dd></div>
     <div class="wide"><dt>Coordenadas</dt><dd><span class="mono" id="cXY"></span> <button type="button" class="copy" id="cCopy">Copiar</button></dd></div>
+    <div class="wide" id="cWxRow" hidden><dt>Previsão no local</dt><dd id="cWx" class="mono"></dd></div>
   </dl>
   <div class="card-links">
     <a id="lSv" target="_blank" rel="noopener">Street View</a>
@@ -114,6 +184,6 @@
 </article>
 
 <div class="toast" id="toast" hidden></div>
-<div class="loading" id="loading">Carregando o globo…</div>
+<div class="loading" id="loading"><span class="spin" aria-hidden="true"></span>Inicializando globo…</div>
 </body>
 </html>

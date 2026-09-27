@@ -8,86 +8,60 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root{
-    --bg:#EEF1F2; --panel:#FFFFFF; --ink:#16202A; --muted:#5B6873; --line:#D5DCE0;
-    --field:#F6F8F9; --focus:#2B7FC4; --err:#B3261E; --err-bg:#FCEDEC;
-    --night:#0F1418; --night-ink:#DDE5EA; --night-muted:#8796A2;
-    --ce:#C0801C; --re:#4A90E0; --nm:#D15A7F;
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#0B1014; --panel:#141A1F; --ink:#E7ECEF; --muted:#93A1AC; --line:#26313A;
-      --field:#0F1519; --focus:#4A90E0; --err:#F2B8B5; --err-bg:#3A1714; color-scheme: dark; }
-  }
+  :root{--bg:#05080B;--glass:rgba(9,14,19,.86);--ink:#DCE7EE;--ink-2:#AFC0CB;--muted:#7A8F9C;--line:rgba(120,200,235,.18);
+    --accent:#46D5E5;--accent-soft:rgba(70,213,229,.14);--err:#FF8A80;color-scheme:dark}
   *{box-sizing:border-box}
-  html,body{height:100%}
-  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Barlow",system-ui,sans-serif;
-    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);}
-  .side{background:var(--night);color:var(--night-ink);padding:48px clamp(24px,5vw,64px);display:flex;flex-direction:column;justify-content:space-between;gap:32px;position:relative;overflow:hidden}
-  .side canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.55}
-  .side > *{position:relative}
-  .brand{font:700 15px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--night-muted)}
-  .side h1{font:700 clamp(38px,5vw,60px)/.98 "Barlow Condensed",sans-serif;margin:0 0 16px;text-wrap:balance;letter-spacing:.005em}
-  .side p{margin:0;color:var(--night-muted);max-width:40ch}
-  .coords{font:500 12px/1.6 "IBM Plex Mono",monospace;color:var(--night-muted);letter-spacing:.02em}
-  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--night-ink)}
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,sans-serif;display:grid;place-items:center;padding:24px 16px;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%}
+  .wrap{position:relative;width:100%;max-width:420px;display:grid;gap:22px}
+  .brand{font:700 15px/1 "Chakra Petch",sans-serif;letter-spacing:.16em;display:flex;align-items:center;gap:10px}
+  .brand .sl{color:var(--accent);margin:0 .2em}
+  .mark{width:14px;height:14px;border:2px solid var(--accent);border-radius:50%;box-shadow:0 0 12px rgba(70,213,229,.6);position:relative}
+  .mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+  form{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:26px 24px 22px;display:grid;gap:16px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  form::before{content:"";position:absolute;left:16px;right:16px;top:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+  h1{margin:0;font:600 22px/1.15 "Chakra Petch",sans-serif;letter-spacing:.04em;text-wrap:balance}
+  .sub{margin:-8px 0 2px;color:var(--muted);font-size:13.5px}
+  label{display:grid;gap:6px;font:600 11px "Chakra Petch",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  input{font:15px "IBM Plex Sans",sans-serif;color:var(--ink);background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:6px;padding:11px 12px;outline:none;letter-spacing:0;text-transform:none}
+  input:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  button{font:600 13px "Chakra Petch",sans-serif;letter-spacing:.14em;text-transform:uppercase;background:var(--accent);color:#04161A;border:0;border-radius:6px;padding:12px 16px;cursor:pointer;box-shadow:0 0 20px rgba(70,213,229,.25)}
+  button:hover{filter:brightness(1.08)} button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .err{border:1px solid var(--err);color:var(--err);border-radius:6px;padding:9px 12px;font-size:13.5px}
+  .foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font:500 11.5px "IBM Plex Mono",monospace;color:var(--muted)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2)}
   .legend span{display:inline-flex;align-items:center;gap:7px}
-  
-  main{display:flex;align-items:center;padding:48px clamp(24px,6vw,96px)}
-  form{width:100%;max-width:360px;display:grid;gap:18px}
-  form h2{font:600 26px/1.2 "Barlow Condensed",sans-serif;letter-spacing:.01em;margin:0}
-  form .sub{margin:-10px 0 4px;color:var(--muted);font-size:14px}
-  label{display:grid;gap:6px;font-weight:500;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
-  input{font:16px "Barlow",sans-serif;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:11px 12px;outline:none;text-transform:none;letter-spacing:0}
-  input:focus-visible{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 25%,transparent)}
-  button{font:600 15px "Barlow",sans-serif;letter-spacing:.02em;background:var(--ink);color:var(--panel);border:0;border-radius:8px;padding:12px 16px;cursor:pointer}
-  button:hover{opacity:.9} button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-  .err{background:var(--err-bg);color:var(--err);border-radius:8px;padding:10px 12px;font-size:14px}
-  .note{font-size:12.5px;color:var(--muted)}
-  @media (max-width:760px){
-    body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-    .side{padding:28px 20px;gap:18px}
-    .side h1{font-size:34px}
-    .coords,.side p{display:none}
-    main{align-items:flex-start;padding:28px 20px}
-  }
 </style>
 </head>
 <body>
-  <aside class="side">
-    <canvas id="bg" aria-hidden="true"></canvas>
-    <div class="brand">GeoDados DF</div>
-    <div>
-      <h1>Fiscalização eletrônica de trânsito no Distrito Federal</h1>
-      <p>Mapa 3D de acesso restrito com a localização dos equipamentos por Região Administrativa, tipo e sentido da via.</p>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="wrap">
+  <div class="brand"><span class="mark" aria-hidden="true"></span>GEODADOS<span class="sl">//</span>DF</div>
+  <form method="post" action="/login" autocomplete="on">
+    <h1>Acesso restrito</h1>
+    <p class="sub">Medidores de velocidade e previsão do tempo no Distrito Federal. Entre com o usuário e a senha que você recebeu.</p>
+    <div class="err" id="err" hidden>Usuário ou senha incorretos. Confira e tente de novo.</div>
+    <label for="usuario">Usuário
+      <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    </label>
+    <label for="senha">Senha
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+    </label>
+    <input type="hidden" name="next" id="next" value="/">
+    <button type="submit">Entrar</button>
+    <div class="legend">
+      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><rect x="5.5" y="5.5" width="29" height="29" rx="6" fill="#C0801C" stroke="#fff" stroke-width="2.5"/><g transform="translate(8.6 8.6) scale(.95)"><rect x="4" y="8" width="13" height="9" rx="1.6" fill="#fff"/><path d="M17 11l4-2v7l-4-2z" fill="#fff"/><circle cx="9.5" cy="12.5" r="2.4" fill="#C0801C"/></g></svg>Controlador</span>
+      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="#4A90E0" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="8.2" fill="#fff" stroke="#D2231E" stroke-width="2.5"/><text x="20" y="23.3" font-family="Arial" font-weight="700" font-size="9" fill="#111" text-anchor="middle">60</text></svg>Redutor</span>
+      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><rect x="8.5" y="8.5" width="23" height="23" rx="4" transform="rotate(45 20 20)" fill="#D15A7F" stroke="#fff" stroke-width="2.5"/><g transform="translate(10.6 10.6) scale(.78)"><rect x="8" y="3.5" width="8" height="17" rx="2.4" fill="#fff"/><circle cx="12" cy="7.3" r="1.9" fill="#D2231E"/><circle cx="12" cy="12" r="1.9" fill="#E8A300"/><circle cx="12" cy="16.7" r="1.9" fill="#1E9E4A"/></g></svg>Não metrológico</span>
     </div>
-    <div style="display:grid;gap:14px">
-      <div class="legend">
-        <span><svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true"><rect x="5.5" y="5.5" width="29" height="29" rx="6" fill="#C0801C" stroke="#fff" stroke-width="2.5"/><g transform="translate(8.6 8.6) scale(.95)"><rect x="4" y="8" width="13" height="9" rx="1.6" fill="#fff"/><path d="M17 11l4-2v7l-4-2z" fill="#fff"/><circle cx="9.5" cy="12.5" r="2.4" fill="#C0801C"/></g></svg>Controlador</span>
-        <span><svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="#4A90E0" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="8.2" fill="#fff" stroke="#D2231E" stroke-width="2.5"/><text x="20" y="23.3" font-family="Arial" font-weight="700" font-size="9" fill="#111" text-anchor="middle">60</text></svg>Redutor de velocidade</span>
-        <span><svg viewBox="0 0 40 40" width="22" height="22" aria-hidden="true"><rect x="8.5" y="8.5" width="23" height="23" rx="4" transform="rotate(45 20 20)" fill="#D15A7F" stroke="#fff" stroke-width="2.5"/><g transform="translate(10.6 10.6) scale(.78)"><rect x="8" y="3.5" width="8" height="17" rx="2.4" fill="#fff"/><circle cx="12" cy="7.3" r="1.9" fill="#D2231E"/><circle cx="12" cy="12" r="1.9" fill="#E8A300"/><circle cx="12" cy="16.7" r="1.9" fill="#1E9E4A"/></g></svg>Não metrológico</span>
-      </div>
-      <div class="coords">15°47′S · 47°52′W · WGS 84</div>
-    </div>
-  </aside>
-  <main>
-    <form method="post" action="/login" autocomplete="on">
-      <h2>Entrar</h2>
-      <p class="sub">Use o usuário e a senha que você recebeu.</p>
-      <div class="err" id="err" hidden>Usuário ou senha incorretos. Confira e tente de novo.</div>
-      <label for="usuario">Usuário
-        <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
-      </label>
-      <label for="senha">Senha
-        <input id="senha" name="senha" type="password" autocomplete="current-password" required>
-      </label>
-      <input type="hidden" name="next" id="next" value="/">
-      <button type="submit">Entrar no mapa</button>
-      <p class="note">A sessão dura 12 horas. Esqueceu a senha? Fale com o administrador do painel.</p>
-    </form>
-  </main>
+  </form>
+  <div class="foot"><span>15°47′S · 47°52′W · WGS 84</span><span>Sessão de 12 h</span></div>
+</div>
 <script>
   const q = new URLSearchParams(location.search);
   if (q.get("erro")) {
@@ -96,21 +70,24 @@
     e.hidden = false;
   }
   if (q.get("next")) document.getElementById("next").value = q.get("next");
-  // Fundo: malha de pontos como uma grade viária vista do alto
-  (function(){
+  // fundo: grade de radar com pontos
+  (function () {
     const c = document.getElementById("bg"), x = c.getContext("2d");
-    function draw(){
-      const r = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-      c.width = w*r; c.height = h*r; x.scale(r,r); x.clearRect(0,0,w,h);
-      const cols = ["#C0801C","#4A90E0","#D15A7F"]; let s = 7;
-      const rnd = () => (s = (s*16807) % 2147483647) / 2147483647;
-      x.strokeStyle = "rgba(135,150,162,.10)"; x.lineWidth = 1;
-      for (let i=0;i<w;i+=28){x.beginPath();x.moveTo(i,0);x.lineTo(i,h);x.stroke();}
-      for (let j=0;j<h;j+=28){x.beginPath();x.moveTo(0,j);x.lineTo(w,j);x.stroke();}
-      for (let k=0;k<90;k++){
-        const px = Math.round(rnd()*w/28)*28, py = Math.round(rnd()*h/28)*28;
-        x.fillStyle = cols[k%3]; x.globalAlpha = .35 + rnd()*.5;
-        x.beginPath(); x.arc(px,py,2.5,0,7); x.fill();
+    function draw() {
+      const r = devicePixelRatio || 1, w = innerWidth, h = innerHeight;
+      c.width = w * r; c.height = h * r; x.setTransform(r, 0, 0, r, 0, 0); x.clearRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+      x.strokeStyle = "rgba(70,213,229,.07)"; x.lineWidth = 1;
+      for (let i = 0; i < w; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); }
+      for (let j = 0; j < h; j += 32) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); }
+      x.strokeStyle = "rgba(70,213,229,.12)";
+      for (let k = 1; k < 7; k++) { x.beginPath(); x.arc(cx, cy, k * 120, 0, Math.PI * 2); x.stroke(); }
+      let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+      const cols = ["#C0801C", "#4A90E0", "#D15A7F"];
+      for (let k = 0; k < 110; k++) {
+        const a = rnd() * Math.PI * 2, d = 60 + rnd() * Math.max(w, h) * 0.55;
+        x.fillStyle = cols[k % 3]; x.globalAlpha = .25 + rnd() * .45;
+        x.beginPath(); x.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, 2.2, 0, 7); x.fill();
       }
       x.globalAlpha = 1;
     }

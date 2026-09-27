@@ -17,9 +17,11 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+import clima
 import dados
 import seguranca
 
@@ -52,6 +54,7 @@ if EM_PRODUCAO:
 
 app = FastAPI(title="GeoDados DF", docs_url=None, redoc_url=None, openapi_url=None)
 _falhas: dict[str, deque] = defaultdict(deque)
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 def _serializador() -> URLSafeTimedSerializer:
@@ -196,6 +199,14 @@ def configuracao():
 @app.get("/data/equipamentos.json")
 def lista_equipamentos():
     return JSONResponse(dados.equipamentos())
+
+
+@app.get("/api/clima")
+def previsao_do_tempo():
+    try:
+        return clima.previsao()
+    except RuntimeError as erro:
+        return JSONResponse({"erro": str(erro)}, status_code=503)
 
 
 @app.get("/")

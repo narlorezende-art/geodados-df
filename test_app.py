@@ -127,3 +127,60 @@ def test_dados_limpos():
     assert len({i["cra"] for i in itens}) == 20
     assert not any("ÿ" in i["end"] or i["end"].endswith("<") for i in itens)
     assert all(-16.1 < i["lat"] < -15.5 and -48.3 < i["lon"] < -47.5 for i in itens)
+
+
+# ---------------- clima ----------------
+import clima  # noqa: E402
+
+
+def _locais_falsos():
+    horas = [f"2026-09-27T{h:02d}:00" for h in range(48)]
+    return [{"hourly": {"time": horas,
+                        "temperature_2m": [20.0 + k * 0.1 + h * 0.01 for h in range(48)],
+                        "precipitation": [0.0 if k % 3 else 1.24 for _ in range(48)],
+                        "precipitation_probability": [k % 100 for _ in range(48)]}}
+            for k in range(clima.NX * clima.NY)]
+
+
+def test_grade_cobre_o_df():
+    pts = clima.grade()
+    assert len(pts) == clima.NX * clima.NY
+    assert pts[0][0] > pts[-1][0]  # começa no norte
+    assert min(p[1] for p in pts) < -48.2 and max(p[1] for p in pts) > -47.35
+
+
+def test_previsao_monta_matrizes_e_usa_cache():
+    clima.limpar_cache()
+    chamadas = []
+    fonte = lambda: chamadas.append(1) or _locais_falsos()  # noqa: E731
+    d = clima.previsao(fonte)
+    assert len(d["horas"]) == 48 and len(d["temp"]) == 48 and len(d["temp"][0]) == 96
+    assert d["chuva"][0][0] == 1.2 and d["prob"][0][5] == 5
+    clima.previsao(fonte)
+    assert len(chamadas) == 1  # segunda chamada veio do cache
+
+
+def test_previsao_falha_devolve_ultima_ou_erro():
+    clima.limpar_cache()
+    def quebrada():
+        raise OSError("sem rede")
+    try:
+        clima.previsao(quebrada)
+        assert False, "deveria falhar sem cache"
+    except RuntimeError:
+        pass
+    clima.previsao(_locais_falsos)
+    clima._cache["quando"] = 0  # força expirar
+    assert clima.previsao(quebrada)["desatualizado"] is True
+    clima.limpar_cache()
+
+
+def test_api_clima_exige_login_e_responde():
+    clima.limpar_cache()
+    clima.previsao(_locais_falsos)
+    c = cliente()
+    assert c.get("/api/clima").status_code == 401
+    entrar(c)
+    r = c.get("/api/clima")
+    assert r.status_code == 200 and r.json()["nx"] == clima.NX
+    clima.limpar_cache()

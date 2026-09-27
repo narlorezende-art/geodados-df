@@ -1,172 +1,233 @@
+/* GeoDados DF — HUD escuro (tema único, deliberado) */
 :root{
-  /* neutros com leve viés azul-ardósia */
-  --bg:#EEF1F2; --surface:#FFFFFF; --surface-2:#F4F6F7; --ink:#16202A; --ink-2:#34414C; --muted:#5B6873;
-  --line:#DCE1E4; --bar:#9AA8B3; --focus:#2B7FC4; --chip-on:#16202A; --chip-on-ink:#FFFFFF;
-  /* cores por tipo (validadas p/ daltonismo) */
-  --ce:#B7770C; --re:#2B7FC4; --nm:#B8457E;
-  --shadow:0 8px 28px rgba(15,25,35,.16), 0 1px 3px rgba(15,25,35,.10);
-  --panel-w:360px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#0B1014; --surface:#141A1F; --surface-2:#1A2127; --ink:#E7ECEF; --ink-2:#C3CDD4; --muted:#93A1AC;
-    --line:#26313A; --bar:#5C6B77; --focus:#4A90E0; --chip-on:#E7ECEF; --chip-on-ink:#141A1F;
-    --ce:#C0801C; --re:#4A90E0; --nm:#D15A7F;
-    --shadow:0 10px 30px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.4);
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#0B1014; --surface:#141A1F; --surface-2:#1A2127; --ink:#E7ECEF; --ink-2:#C3CDD4; --muted:#93A1AC;
-  --line:#26313A; --bar:#5C6B77; --focus:#4A90E0; --chip-on:#E7ECEF; --chip-on-ink:#141A1F;
+  --glass: 9,14,19;              /* cor base dos painéis (rgb) */
+  --pa: .55;                     /* opacidade do painel em repouso (controle deslizante) */
+  --ink:#DCE7EE; --ink-2:#AFC0CB; --muted:#7A8F9C; --dim:#56697A;
+  --line:rgba(120,200,235,.14); --line-2:rgba(120,200,235,.26);
+  --accent:#46D5E5; --accent-ink:#04161A; --accent-soft:rgba(70,213,229,.14);
   --ce:#C0801C; --re:#4A90E0; --nm:#D15A7F;
-  --shadow:0 10px 30px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.4);
+  --ok:#5BD69A; --warn:#F2B84B;
+  --shadow:0 12px 40px rgba(0,0,0,.45);
+  --panel-w:360px; --top:48px; --bottom:26px;
   color-scheme: dark;
 }
-
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--ink);font:14px/1.45 "Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+body{background:#05080B;color:var(--ink);font:13.5px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.mono,.card-id,.r-id{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
-.muted{color:var(--muted);font-weight:400}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+.dim{color:var(--muted)}
 
-#map{position:fixed;inset:0;left:var(--panel-w)}
-.cesium-viewer-bottom{left:8px!important;bottom:4px!important}
-.cesium-credit-lightbox-overlay{z-index:50}
-.cesium-widget-credits{font-size:10px!important;opacity:.8}
+#map{position:fixed;inset:0}
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:1;
+  background:radial-gradient(120% 90% at 50% 45%,transparent 60%,rgba(0,0,0,.45) 100%)}
+.cesium-viewer-bottom{left:auto!important;right:10px!important;bottom:calc(var(--bottom) + 4px)!important}
+.cesium-widget-credits{font-size:10px!important;opacity:.7}
+.cesium-credit-logoContainer{display:none!important}
+
+.glass{background:rgba(var(--glass),.82);backdrop-filter:blur(14px) saturate(1.2);-webkit-backdrop-filter:blur(14px) saturate(1.2)}
+
+/* ---------- barra superior ---------- */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--top);z-index:20;display:flex;align-items:center;gap:16px;padding:0 16px;
+  padding-top:env(safe-area-inset-top,0px);
+  background:linear-gradient(180deg,rgba(var(--glass),.92),rgba(var(--glass),.72));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+.brand{font:700 15px/1 "Chakra Petch",sans-serif;letter-spacing:.14em;display:flex;align-items:center;gap:10px;white-space:nowrap}
+.brand .sl{color:var(--accent);margin:0 .2em}
+.brand-mark{width:14px;height:14px;border:2px solid var(--accent);border-radius:50%;box-shadow:0 0 12px rgba(70,213,229,.6);position:relative}
+.brand-mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.tb-chips{display:flex;gap:8px;flex:1;justify-content:center;min-width:0;overflow:hidden}
+.tb-chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:4px;white-space:nowrap;color:var(--ink-2)}
+.tb-chip b{color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:600}
+.live{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.tb-user{display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.tb-user a{color:var(--accent);text-decoration:none;font-weight:500}
+.tb-user a:hover{text-decoration:underline}
 
 /* ---------- painel ---------- */
-.panel{position:fixed;left:0;top:0;bottom:0;width:var(--panel-w);background:var(--surface);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;z-index:10}
-.sheet-handle{display:none}
-.p-head{padding:20px 20px 14px;border-bottom:1px solid var(--line)}
-.eyebrow{font:700 12px/1 "Barlow Condensed",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.p-title-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:6px}
-h1{font:700 27px/1.05 "Barlow Condensed",sans-serif;margin:0;letter-spacing:.005em;text-wrap:balance}
-.logout{font-size:12.5px;color:var(--muted);text-decoration:none;white-space:nowrap}
-.logout:hover{color:var(--ink)}
-.p-body{overflow-y:auto;padding:4px 20px 20px;display:flex;flex-direction:column;gap:6px;flex:1}
+.panel{position:fixed;z-index:15;left:12px;top:calc(var(--top) + 12px);bottom:calc(var(--bottom) + 12px);width:var(--panel-w);
+  display:flex;flex-direction:column;border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow);
+  background:rgba(var(--glass),var(--pa));backdrop-filter:blur(10px) saturate(1.15);-webkit-backdrop-filter:blur(10px) saturate(1.15);
+  transition:background-color .25s ease,transform .3s ease,opacity .3s ease}
+.panel:hover,.panel:focus-within{background:rgba(var(--glass),.95)}
+.panel.collapsed{transform:translateX(calc(-100% - 24px));opacity:0;pointer-events:none;visibility:hidden;transition:transform .3s ease,opacity .3s ease,visibility 0s linear .3s}
+.panel::before{content:"";position:absolute;left:14px;right:14px;top:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.7}
+.p-head{display:flex;align-items:center;gap:6px;padding:8px 8px 0 8px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex:1;gap:2px}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 10px 9px;font:600 12px "Chakra Petch",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.collapse{background:none;border:1px solid var(--line);border-radius:6px;width:30px;height:30px;display:grid;place-items:center;margin-bottom:6px}
+.collapse:hover{border-color:var(--accent)}
+.collapse svg,.rail svg{width:14px;height:14px;fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.p-body{flex:1;overflow-y:auto;padding:12px 14px;scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.tabpane{display:grid;gap:14px}
+.p-foot{border-top:1px solid var(--line);padding:9px 14px 11px}
 
-.summary{padding:14px 0 12px;display:grid;gap:10px}
-.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.big .num{font:700 44px/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.big .of{color:var(--muted)}
-.share{display:flex;gap:2px;height:10px;border-radius:4px;overflow:hidden;background:var(--surface-2)}
-.share span{display:block;height:100%;transition:flex-grow .25s ease}
-.share span:first-child{border-radius:4px 0 0 4px} .share span:last-child{border-radius:0 4px 4px 0}
+.rail{position:fixed;z-index:15;left:12px;top:calc(var(--top) + 12px);display:flex;align-items:center;gap:8px;padding:9px 12px 9px 10px;
+  border:1px solid var(--line-2);border-radius:8px;background:rgba(var(--glass),.85);backdrop-filter:blur(10px);
+  font:600 12px "Chakra Petch",sans-serif;letter-spacing:.12em;text-transform:uppercase;box-shadow:var(--shadow)}
+.rail:hover{border-color:var(--accent);color:var(--accent)}
+.rail:hover svg{stroke:var(--accent)}
 
-.group{padding:12px 0;border-top:1px solid var(--line);display:grid;gap:10px}
-.g-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-h2{font:600 12px/1.2 "Barlow",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
-.g-actions{display:flex;gap:4px}
-.g-actions button{background:none;border:0;color:var(--focus);font-size:12.5px;font-weight:500;padding:2px 4px;border-radius:4px}
-.g-actions button:hover{text-decoration:underline}
-
-.types{display:grid;gap:6px}
-.tchip{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;text-align:left;background:var(--surface-2);
-  border:1px solid var(--line);border-radius:8px;padding:7px 10px}
-.tchip[aria-pressed="false"]{background:transparent;color:var(--muted)}
-.tchip[aria-pressed="false"] .ico{filter:grayscale(1);opacity:.45}
-.tchip .t-name{font-weight:500}
-.tchip .t-code{display:block;font:500 11px/1.2 "IBM Plex Mono",monospace;color:var(--muted)}
-.tchip .t-n{font-variant-numeric:tabular-nums;font-weight:600}
+/* ---------- árvore de camadas ---------- */
+.layer-group{border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.015)}
+.lg-head{display:flex;align-items:center;gap:8px;padding:9px 10px}
+.twisty{background:none;border:0;width:20px;height:20px;display:grid;place-items:center;padding:0;border-radius:4px}
+.twisty svg{width:12px;height:12px;fill:none;stroke:var(--muted);stroke-width:1.8;transition:transform .2s}
+.twisty[aria-expanded="false"] svg{transform:rotate(-90deg)}
+.lg-title{flex:1;font:600 12.5px "Chakra Petch",sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.lg-title.pad{padding-left:2px}
+.lg-count{font-size:12px;color:var(--ink-2)}
+.sublayers{border-top:1px solid var(--line);padding:6px 6px 8px}
+.sub{display:grid;grid-template-columns:30px 1fr auto 38px;align-items:center;gap:8px;padding:6px 6px;border-radius:6px}
+.sub:hover{background:rgba(255,255,255,.035)}
+.sub .ico{width:28px;height:28px}
+.sub .s-name{font-weight:500;line-height:1.25}
+.sub .s-name small{display:block;font:500 11px "IBM Plex Mono",monospace;color:var(--muted)}
+.sub .s-n{font:600 12.5px "IBM Plex Mono",monospace;color:var(--ink-2)}
+.sub.off .ico{filter:grayscale(1);opacity:.4}
+.sub.off .s-name,.sub.off .s-n{color:var(--dim)}
 .ico{display:inline-grid;place-items:center;width:28px;height:28px;flex:none}
 .ico svg{width:100%;height:100%;display:block}
 
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 11px;font-size:13px;color:var(--ink-2)}
-.chip b{font-weight:600;font-variant-numeric:tabular-nums;margin-left:4px;color:var(--muted)}
-.chip[aria-pressed="true"]{background:var(--chip-on);border-color:var(--chip-on);color:var(--chip-on-ink)}
-.chip[aria-pressed="true"] b{color:inherit;opacity:.75}
+.switch{position:relative;display:inline-block;width:34px;height:18px;flex:none}
+.switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer;z-index:1}
+.switch span{position:absolute;inset:0;border-radius:9px;background:rgba(255,255,255,.1);border:1px solid var(--line-2);transition:.2s}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--ink-2);transition:.2s}
+.switch input:checked + span{background:var(--accent-soft);border-color:var(--accent)}
+.switch input:checked + span::after{left:18px;background:var(--accent);box-shadow:0 0 8px rgba(70,213,229,.7)}
+.switch input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
 
-.search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:0 10px}
-.search:focus-within{border-color:var(--focus)}
-.search svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
-.search input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:15px "Barlow",sans-serif;padding:9px 0;outline:none}
+/* clima */
+.wx{padding:6px 6px 8px;border-radius:6px}
+.wx + .wx{border-top:1px dashed var(--line)}
+.wx-row{display:grid;grid-template-columns:30px 1fr 38px;align-items:center;gap:8px}
+.wx-ico{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--line-2);border-radius:6px}
+.wx-ico svg{width:18px;height:18px;fill:none;stroke:var(--ink-2);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.wx-name{font-weight:500;line-height:1.25}
+.wx-name small{display:block;font-size:11px;color:var(--muted)}
+.wx-extra{display:grid;gap:6px;padding:8px 0 0 38px}
+.wx:not(.on) .wx-extra{display:none}
+.wx.on .wx-ico{border-color:var(--accent)} .wx.on .wx-ico svg{stroke:var(--accent)}
+.ramp{display:grid;gap:3px}
+.ramp .bar{height:8px;border-radius:2px}
+.ramp .ticks{display:flex;justify-content:space-between;font:500 10.5px "IBM Plex Mono",monospace;color:var(--muted)}
+.op{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px;font-size:11.5px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:18px;width:100%;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:var(--line-2)}
+input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:var(--line-2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);margin-top:-5px;box-shadow:0 0 0 3px rgba(70,213,229,.2)}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;background:var(--accent)}
+.timebar{display:grid;grid-template-columns:32px 1fr;gap:10px;align-items:center;margin:8px 6px 2px;padding-top:10px;border-top:1px solid var(--line)}
+.play{width:32px;height:32px;border-radius:50%;border:1px solid var(--accent);background:var(--accent-soft);display:grid;place-items:center}
+.play svg{width:13px;height:13px;fill:var(--accent)}
+.tb-label{display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.tb-label b{font-weight:600;color:var(--ink)}
+.wx-note{margin:6px 6px 0;font-size:11px}
+.wx-note.warn{color:var(--warn)}
 
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 10px 10px}
+.seg button{border:1px solid var(--line);background:transparent;border-radius:6px;padding:7px 4px;font-size:12px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.seg button:hover{border-color:var(--line-2);color:var(--ink)}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- filtros ---------- */
+.summary{display:grid;gap:9px}
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big .num{font-size:34px;font-weight:600;line-height:1;color:var(--accent);text-shadow:0 0 18px rgba(70,213,229,.35)}
+.big .of{color:var(--muted)}
+.share{display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.05)}
+.share span{display:block;height:100%}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:6px;padding:0 10px;background:rgba(0,0,0,.25)}
+.search:focus-within{border-color:var(--accent)}
+.search svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2}
+.search input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:14px "IBM Plex Sans",sans-serif;padding:8px 0;outline:none}
+.f-group{display:grid;gap:8px}
+.f-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h3{margin:0;font:600 11.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.links{display:flex;gap:6px}
+.links button{background:none;border:0;padding:2px 4px;color:var(--accent);font-size:12px;font-weight:500}
+.links button:hover{text-decoration:underline}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line-2);background:transparent;border-radius:4px;padding:4px 9px;font-size:12px;color:var(--ink-2)}
+.chip b{font:600 11.5px "IBM Plex Mono",monospace;margin-left:5px;color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.chip[aria-pressed="true"] b{color:var(--accent)}
 .ra-list,.results{list-style:none;margin:0;padding:0}
-.ra-list li label{display:grid;grid-template-columns:16px minmax(0,1fr) 72px 30px;align-items:center;gap:8px;padding:4px 2px;border-radius:6px;cursor:pointer}
-.ra-list li label:hover{background:var(--surface-2)}
-.ra-list input{margin:0;accent-color:var(--ink)}
+.ra-list li label{display:grid;grid-template-columns:14px minmax(0,1fr) 64px 28px;align-items:center;gap:8px;padding:4px 2px;border-radius:4px;cursor:pointer}
+.ra-list li label:hover{background:rgba(255,255,255,.04)}
+.ra-list input{margin:0;accent-color:var(--accent)}
 .ra-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ra-name .code{font:500 11px "IBM Plex Mono",monospace;color:var(--muted);margin-right:6px}
-.ra-bar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
-.ra-bar i{display:block;height:100%;background:var(--bar);border-radius:0 3px 3px 0}
-.ra-n{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
-.ra-list li.off .ra-name,.ra-list li.off .ra-n{color:var(--muted)}
+.ra-name .code{font:500 10.5px "IBM Plex Mono",monospace;color:var(--muted);margin-right:6px}
+.ra-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.ra-bar i{display:block;height:100%;background:var(--accent);opacity:.75}
+.ra-n{text-align:right;font:600 12px "IBM Plex Mono",monospace}
+.ra-list li.off .ra-name,.ra-list li.off .ra-n{color:var(--dim)}
 
-.results{max-height:none;display:grid;gap:2px}
-.results li button{width:100%;display:grid;grid-template-columns:20px 1fr;gap:4px 10px;text-align:left;background:none;border:0;border-radius:6px;padding:7px 6px}
-.results li button:hover,.results li button[aria-current="true"]{background:var(--surface-2)}
-.results .sw .ico{width:20px;height:20px;margin-top:-1px}
+.results{display:grid;gap:1px;margin-top:6px}
+.results li button{width:100%;display:grid;grid-template-columns:22px 1fr;gap:3px 10px;text-align:left;background:none;border:0;border-radius:6px;padding:7px 6px}
+.results li button:hover,.results li button[aria-current="true"]{background:rgba(70,213,229,.08)}
+.results .sw .ico{width:22px;height:22px}
 .r-top{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
-.r-id{font-weight:500}
-.r-ra{font-size:12px;color:var(--muted);white-space:nowrap}
-.r-addr{grid-column:2;font-size:12.5px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.more{width:100%;margin-top:6px;border:1px dashed var(--line);background:none;border-radius:6px;padding:7px;color:var(--muted)}
+.r-id{font:500 13px "IBM Plex Mono",monospace}
+.r-ra{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.r-addr{grid-column:2;font-size:12px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.more{width:100%;margin-top:6px;border:1px dashed var(--line-2);background:none;border-radius:6px;padding:7px;color:var(--muted)}
 .empty{color:var(--muted);padding:8px 0}
-.p-foot{font-size:12px;color:var(--muted);padding-top:12px;border-top:1px solid var(--line)}
 
-/* ---------- barra do mapa ---------- */
-.toolbar{position:fixed;top:12px;right:12px;left:calc(var(--panel-w) + 12px);display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;z-index:9;pointer-events:none}
-.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;box-shadow:var(--shadow);pointer-events:auto}
-.seg button{border:0;background:none;padding:6px 11px;border-radius:7px;font-weight:500;font-size:13px;color:var(--ink-2);white-space:nowrap}
-.seg button:hover{background:var(--surface-2)}
-.seg button[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink)}
-.seg button:disabled{opacity:.45;cursor:not-allowed}
+/* ---------- barra de status ---------- */
+.statusbar{position:fixed;left:0;right:0;bottom:0;height:var(--bottom);z-index:20;display:flex;align-items:center;gap:18px;padding:0 14px;
+  padding-bottom:env(safe-area-inset-bottom,0px);font-size:11.5px;color:var(--ink-2);
+  background:rgba(var(--glass),.88);border-top:1px solid var(--line);backdrop-filter:blur(10px);white-space:nowrap;overflow:hidden}
+.sb-wx{color:var(--accent)}
+.sb-src{margin-left:auto}
 
-/* ---------- dica ao passar o mouse ---------- */
-.tip{position:fixed;z-index:20;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;
-  padding:6px 9px;font-size:12.5px;box-shadow:var(--shadow);max-width:280px;transform:translate(14px,14px)}
-.tip b{font-family:"IBM Plex Mono",monospace;font-weight:500;margin-right:6px}
-.tip span{color:var(--muted)}
-
-/* ---------- ficha do equipamento ---------- */
-.card{position:fixed;right:12px;bottom:28px;width:min(380px,calc(100vw - var(--panel-w) - 24px));background:var(--surface);border:1px solid var(--line);
-  border-radius:12px;box-shadow:var(--shadow);padding:16px 16px 14px;z-index:12;display:grid;gap:10px}
-.card-x{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;background:none;border-radius:6px;font-size:20px;line-height:1;color:var(--muted)}
-.card-x:hover{background:var(--surface-2);color:var(--ink)}
+/* ---------- dica e ficha ---------- */
+.tip{position:fixed;z-index:30;pointer-events:none;background:rgba(var(--glass),.94);border:1px solid var(--line-2);border-radius:6px;
+  padding:6px 9px;font-size:12px;box-shadow:var(--shadow);max-width:300px;transform:translate(14px,14px)}
+.tip b{font-family:"IBM Plex Mono",monospace;font-weight:600;margin-right:6px;color:var(--accent)}
+.tip span{color:var(--ink-2)}
+.card{position:fixed;right:12px;bottom:calc(var(--bottom) + 12px);width:min(380px,calc(100vw - 24px));z-index:16;display:grid;gap:10px;
+  padding:16px;border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow);
+  background:rgba(var(--glass),.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.card::before{content:"";position:absolute;left:14px;right:14px;top:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.7}
+.card-x{position:absolute;top:8px;right:8px;width:28px;height:28px;border:0;background:none;border-radius:6px;font-size:20px;line-height:1;color:var(--muted)}
+.card-x:hover{background:rgba(255,255,255,.06);color:var(--ink)}
 .card-top{display:flex;align-items:center;gap:10px;padding-right:30px;flex-wrap:wrap}
-.card-id{font-size:22px;font-weight:500;letter-spacing:.02em}
-.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px 3px 4px;background:var(--surface-2);border:1px solid var(--line)}
+.card-id{font-size:22px;font-weight:600;letter-spacing:.04em}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border:1px solid var(--line-2);border-radius:999px;padding:2px 10px 2px 3px}
 .pill .ico{width:22px;height:22px}
-.card-addr{margin:0;font-size:14.5px;line-height:1.4}
+.card-addr{margin:0;font-size:14px;line-height:1.4}
 .card-dl{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:0}
 .card-dl .wide{grid-column:1/-1}
-.card-dl dt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card-dl dt{font:600 10.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .card-dl dd{margin:2px 0 0;font-weight:500}
-.card-dl .mono{font-size:13px;font-weight:400}
-.copy{border:1px solid var(--line);background:none;border-radius:5px;font-size:11.5px;padding:1px 7px;margin-left:6px;color:var(--muted)}
-.card-links{display:flex;gap:6px;flex-wrap:wrap;padding-top:4px;border-top:1px solid var(--line)}
-.card-links a{font-size:13px;font-weight:500;color:var(--focus);text-decoration:none;padding:5px 8px;border-radius:6px}
-.card-links a:hover{background:var(--surface-2)}
+.card-dl .mono{font-size:12.5px;font-weight:400}
+.copy{border:1px solid var(--line-2);background:none;border-radius:4px;font-size:11px;padding:1px 7px;margin-left:6px;color:var(--ink-2)}
+.card-links{display:flex;gap:4px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--line)}
+.card-links a{font-size:12.5px;font-weight:500;color:var(--accent);text-decoration:none;padding:4px 8px;border-radius:4px}
+.card-links a:hover{background:var(--accent-soft)}
 .card-links a::after{content:" ↗";opacity:.7}
 
-.toast{position:fixed;left:calc(var(--panel-w) + 12px);bottom:28px;z-index:30;background:var(--ink);color:var(--surface);padding:9px 14px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);max-width:420px}
-.loading{position:fixed;inset:0;left:var(--panel-w);display:grid;place-items:center;color:var(--muted);font:600 14px "Barlow",sans-serif;letter-spacing:.06em;text-transform:uppercase;z-index:5;pointer-events:none}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--bottom) + 14px);z-index:40;background:rgba(var(--glass),.95);
+  border:1px solid var(--accent);color:var(--ink);padding:9px 14px;border-radius:6px;font-size:13px;box-shadow:var(--shadow);max-width:min(460px,calc(100vw - 24px))}
+.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:12px;z-index:50;background:#05080B;
+  font:600 13px "Chakra Petch",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.spin{width:18px;height:18px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* ---------- celular: painel vira gaveta inferior ---------- */
+/* ---------- celular ---------- */
 @media (max-width:760px){
-  :root{--panel-w:0px}
-  #map,.loading{left:0}
-  .panel{top:auto;left:0;right:0;width:auto;height:min(72vh,640px);border-right:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;
-    box-shadow:var(--shadow);transform:translateY(calc(100% - 58px - env(safe-area-inset-bottom,0px)));transition:transform .28s ease;
-    padding-bottom:env(safe-area-inset-bottom,0px)}
-  .panel.open{transform:none}
-  .sheet-handle{display:block;border-bottom:1px solid var(--line)}
-  .handle-btn{width:100%;background:none;border:0;padding:8px 16px 12px;display:grid;justify-items:center;gap:8px;font-size:14px}
-  .handle-bar{width:40px;height:4px;border-radius:2px;background:var(--line)}
-  .p-head{padding:12px 16px 10px}
-  h1{font-size:22px}
-  .p-body{padding:4px 16px 16px}
-  .toolbar{left:12px;right:12px;top:calc(10px + env(safe-area-inset-top,0px));justify-content:flex-start}
-  .seg{overflow-x:auto;max-width:100%}
-  .seg button{padding:6px 9px;font-size:12.5px}
-  .card{left:12px;right:12px;width:auto;bottom:calc(70px + env(safe-area-inset-bottom,0px))}
-  .toast{left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+  :root{--panel-w:calc(100vw - 24px)}
+  .tb-chips .tb-chip:not(:first-child){display:none}
+  .brand{font-size:13px}
+  .panel{top:auto;height:min(68vh,620px)}
+  .sb-src,#sbAlt{display:none}
+  .card{bottom:calc(var(--bottom) + 12px)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

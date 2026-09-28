@@ -260,3 +260,178 @@ def test_rota_gdf_falha_com_502(monkeypatch):
     c = cliente()
     entrar(c)
     assert c.get("/gdf/FOTO_2009/12/1502/2229").status_code == 502
+
+
+# ---------------- tráfego aéreo ----------------
+import aereo  # noqa: E402
+
+
+def test_frota_e_classificacao():
+    mapa = aereo.frota("PR-ABC:pmdf; e4812a:DETRAN ;lixo")
+    assert mapa == {"PRABC": "PMDF", "E4812A": "DETRAN"}
+    lista = aereo._classificar([
+        {"hex": "e4812a", "reg": "", "tipo": "AS50", "cat": ""},
+        {"hex": "abc", "reg": "PR-ABC", "tipo": "", "cat": "A7"},
+        {"hex": "xyz", "reg": "PR-GOL", "tipo": "B738", "cat": "A3"},
+    ], mapa)
+    assert [a["heli"] for a in lista] == [True, True, False]
+    assert [a["orgao"] for a in lista] == ["DETRAN", "PMDF", ""]
+
+
+def test_aeronaves_troca_de_fonte_e_cache():
+    aereo.limpar_cache()
+    chamadas = []
+    def quebrada():
+        chamadas.append("a"); raise OSError("fora")
+    def boa():
+        chamadas.append("b")
+        return [{"hex": "1", "voo": "X", "reg": "", "tipo": "", "cat": "A7", "lat": -15.8, "lon": -47.9,
+                 "alt": 300, "vel": 180, "rumo": 90, "chao": False, "idade": 1}]
+    d = aereo.aeronaves([("A", quebrada), ("B", boa)])
+    assert d["fonte"] == "B" and d["aeronaves"][0]["heli"] is True
+    aereo.aeronaves([("A", quebrada), ("B", boa)])
+    assert chamadas == ["a", "b"]           # segunda vez veio do cache
+    aereo._cache["quando"] = 0
+    assert aereo.aeronaves([("A", quebrada)])["desatualizado"] is True
+    aereo.limpar_cache()
+    try:
+        aereo.aeronaves([("A", quebrada)])
+        assert False
+    except RuntimeError:
+        pass
+
+
+def test_adsblol_converte_campos(monkeypatch):
+    monkeypatch.setattr(aereo, "_get_json", lambda url, h=None: {"ac": [
+        {"hex": "E4812A", "flight": "PMDF01 ", "r": "PR-ABC", "t": "AS50", "category": "A7",
+         "lat": -15.8, "lon": -47.9, "alt_baro": 1000, "gs": 100, "track": 45, "seen_pos": 2},
+        {"hex": "aa", "lat": -15.7, "lon": -47.8, "alt_baro": "ground", "gs": 5},
+        {"hex": "sem-posicao"},
+    ]})
+    lista = aereo._adsblol()
+    assert len(lista) == 2
+    assert lista[0]["alt"] == 305 and lista[0]["vel"] == 185 and lista[0]["voo"] == "PMDF01"
+    assert lista[1]["chao"] is True and lista[1]["alt"] == 0
+
+
+def test_rota_aeronaves(monkeypatch):
+    aereo.limpar_cache()
+    monkeypatch.setattr(aereo, "FONTES", [("teste", lambda: [])])
+    c = cliente()
+    assert c.get("/api/aeronaves").status_code == 401
+    entrar(c)
+    assert c.get("/api/aeronaves").json()["fonte"] == "teste"
+    aereo.limpar_cache()
+
+
+# ---------------- queimadas ----------------
+import queimadas  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
+
+CSV_INPE = """id,lat,lon,data_hora_gmt,satelite,municipio,estado,pais,frp
+1,-15.80,-47.90,2026-09-28 14:10:00,AQUA_M-T,BRASILIA,DISTRITO FEDERAL,Brasil,12.5
+2,-15.90,-48.10,2026-09-25 14:10:00,NPP-375,BRASILIA,DISTRITO FEDERAL,Brasil,
+3,-10.00,-50.00,2026-09-28 14:10:00,GOES-19,PALMAS,TOCANTINS,Brasil,3
+4,-16.10,-47.50,2026-09-27 20:00:00,NOAA-20,LUZIANIA,GOIAS,Brasil,
+"""
+
+
+def test_queimadas_filtra_regiao_e_tempo():
+    agora = datetime(2026, 9, 28, 16, 0, tzinfo=timezone.utc)
+    focos = queimadas.ler(CSV_INPE, agora)
+    assert [(f["mun"], f["horas"]) for f in focos] == [("Brasilia", 1.8), ("Luziania", 20.0)]
+    assert focos[0]["frp"] == 12.5 and focos[1]["frp"] is None
+
+
+def test_queimadas_junta_dias_e_tolera_arquivo_ausente():
+    queimadas.limpar_cache()
+    agora = datetime(2026, 9, 28, 16, 0, tzinfo=timezone.utc)
+    def baixar(dia):
+        if dia == "20260928":
+            raise OSError("ainda não publicado")
+        return CSV_INPE
+    d = queimadas.focos(baixar, agora)
+    assert len(d["focos"]) == 2      # mesmo foco em dois arquivos conta uma vez
+    queimadas.limpar_cache()
+
+
+# ---------------- trânsito ----------------
+import transito  # noqa: E402
+
+
+def test_transito_exige_chave_e_usa_cache(monkeypatch):
+    transito.limpar_cache()
+    monkeypatch.delenv("TOMTOM_KEY", raising=False)
+    c = cliente(); entrar(c)
+    assert c.get("/api/config").json()["transito"] is False
+    assert c.get("/transito/12/1502/2229").status_code == 404
+    monkeypatch.setenv("TOMTOM_KEY", "k")
+    chamadas = []
+    monkeypatch.setattr(transito, "_baixar", lambda z, x, y: chamadas.append(1) or b"png")
+    r = c.get("/transito/12/1502/2229")
+    assert r.status_code == 200 and "max-age=120" in r.headers["cache-control"]
+    c.get("/transito/12/1502/2229")
+    assert len(chamadas) == 1
+    assert c.get("/transito/3/0/0").content == transito.VAZIO     # longe demais: bloco vazio, sem gastar cota
+    assert c.get("/transito/25/0/0").status_code == 400
+    transito.limpar_cache()
+
+
+# ---------------- Waze for Cities ----------------
+import waze  # noqa: E402
+
+FEED = {
+    "alerts": [
+        {"uuid": "a1", "type": "ACCIDENT", "subtype": "ACCIDENT_MAJOR", "location": {"x": -47.9, "y": -15.8}, "street": "Eixo Monumental", "pubMillis": 1, "reliability": 8, "nThumbsUp": 3},
+        {"uuid": "a2", "type": "WEATHERHAZARD", "subtype": "HAZARD_WEATHER_FLOOD", "location": {"x": -47.95, "y": -15.83}},
+        {"uuid": "a3", "type": "WEATHERHAZARD", "subtype": "HAZARD_ON_ROAD_TRAFFIC_LIGHT_FAULT", "location": {"x": -47.9, "y": -15.7}},
+        {"uuid": "a4", "type": "ROAD_CLOSED", "subtype": "ROAD_CLOSED_EVENT", "location": {"x": -47.9, "y": -15.75}},
+        {"uuid": "a5", "type": "POLICE", "subtype": "POLICE_VISIBLE", "location": {"x": -47.91, "y": -15.76}},
+        {"uuid": "a6", "type": "JAM", "subtype": "JAM_HEAVY_TRAFFIC", "location": {"x": -47.9, "y": -15.7}},
+        {"uuid": "a7", "type": "HAZARD", "subtype": "", "location": {}},
+    ],
+    "jams": [
+        {"uuid": "j1", "level": 4, "speedKMH": 8.4, "delay": 320, "length": 1200, "street": "EPTG",
+         "line": [{"x": -48.0, "y": -15.85}, {"x": -47.98, "y": -15.84}]},
+        {"uuid": "j2", "level": 2, "line": [{"x": -48.0, "y": -15.85}]},
+    ],
+}
+
+
+def test_waze_organiza_categorias():
+    d = waze.organizar(FEED)
+    cats = {a["id"]: (a["cat"], a["rotulo"]) for a in d["alertas"]}
+    assert cats == {
+        "a1": ("acidente", "Acidente grave"), "a2": ("alagamento", "Alagamento"),
+        "a3": ("perigo", "Semáforo com defeito"), "a4": ("interdicao", "Via fechada (evento)"),
+        "a5": ("policia", "Polícia visível"),
+    }
+    assert len(d["congestionamentos"]) == 1
+    j = d["congestionamentos"][0]
+    assert j["nivel"] == 4 and j["vel"] == 8 and j["linha"][0] == [-48.0, -15.85]
+
+
+def test_waze_rota_exige_url_e_login(monkeypatch):
+    waze.limpar_cache()
+    monkeypatch.delenv("WAZE_FEED_URL", raising=False)
+    c = cliente()
+    assert c.get("/api/waze").status_code == 401
+    entrar(c)
+    assert c.get("/api/config").json()["waze"] is False
+    assert c.get("/api/waze").status_code == 404
+    monkeypatch.setenv("WAZE_FEED_URL", "https://www.waze.com/row-partnerhub-api/partners/1/waze-feeds/abc?format=1")
+    monkeypatch.setattr(waze, "_baixar", lambda: FEED)
+    r = c.get("/api/waze")
+    assert r.status_code == 200 and len(r.json()["alertas"]) == 5
+    waze.limpar_cache()
+
+
+def test_waze_falha_devolve_ultima(monkeypatch):
+    waze.limpar_cache()
+    monkeypatch.setenv("WAZE_FEED_URL", "https://x")
+    waze.dados(lambda: FEED)
+    waze._cache["quando"] = 0
+    def quebra():
+        raise OSError("fora")
+    assert waze.dados(quebra)["desatualizado"] is True
+    waze.limpar_cache()

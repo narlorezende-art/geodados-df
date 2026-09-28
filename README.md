@@ -12,6 +12,10 @@ Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido 
 | Leitura e limpeza da planilha | **Python** | `dados.py` (lê o `equipamentos.csv` direto, sem conversão manual) |
 | Previsão do tempo (Chuva e Temperatura) | **Python** | `clima.py` (Open-Meteo, grade sobre o DF, cache de 1 h) |
 | Fotos aéreas do GDF (2024 e histórico) | **Python** | `gdf.py` (busca na IDE-DF, reprojeta para o mapa, cache) |
+| Tráfego aéreo (ADS-B) | **Python** | `aereo.py` (adsb.lol, reserva OpenSky; destaca helicópteros e a frota dos órgãos) |
+| Focos de queimada | **Python** | `queimadas.py` (INPE, DF e entorno, 48 h) |
+| Trânsito em tempo real | **Python** | `transito.py` (TomTom; a chave fica só no servidor) |
+| Waze for Cities | **Python** | `waze.py` (Waze Data Feed; a URL secreta fica só no servidor) |
 | Scripts de apoio | **Python** | `criar_usuario.py`, `baixar_cesium.py` |
 | Testes | **Python** (pytest) | `test_app.py` |
 | Mapa 3D no navegador | JavaScript (CesiumJS) | `index.html`, `app.js`, `app.css` |
@@ -128,3 +132,38 @@ Ao clicar num medidor, no mapa ou na lista, acontecem três coisas:
 - **Como parar e retomar a órbita:** ela para assim que você clica, arrasta ou usa a roda do mouse no mapa. O botão **Pausar órbita / Girar em volta**, na ficha, pausa e retoma. O botão **Inclinada / De cima** muda o ângulo sem interromper a órbita.
 
 Quem ativou "reduzir movimento" no sistema operacional não vê a órbita automática. O botão continua funcionando.
+
+## Camadas no estilo God's Eye
+
+Ao entrar, o mapa abre em vista inclinada do DF com **todas as camadas desligadas e os grupos recolhidos**. O agrupamento de pontos já vem ligado.
+
+| Camada | Fonte | O que mostra |
+|---|---|---|
+| **Tráfego aéreo** | adsb.lol (ADS-B aberto), com reserva no OpenSky | Aeronaves num raio de ~110 km, em 3D na altitude real, com o rumo. Helicópteros e aeronaves dos órgãos ganham ícone próprio, haste até o chão e rastro. Atualiza a cada 10 s |
+| **Trânsito em tempo real** | TomTom Traffic Flow | Fluxo nas vias, de verde (livre) a vermelho-escuro (parado). Atualiza a cada 2 min |
+| **Waze · ocorrências** | Waze for Cities (Data Feed) | Acidentes, alagamentos, clima na via, perigos (inclui semáforo com defeito e buraco), interdições e obras, polícia e congestionamentos em linha, com liga/desliga por categoria. Atualiza a cada 2 min |
+| **Focos de queimada** | INPE, Programa Queimadas | Focos de calor por satélite no DF e entorno nas últimas 48 h, com cor por idade |
+
+### Variáveis novas no Render (Environment → Add Environment Variable)
+
+| Variável | Para quê | Exemplo |
+|---|---|---|
+| `FROTA` | Aeronaves de órgãos em destaque, com nome e cor. Aceita matrícula ou código hex (ICAO), separados por `;` | `PR-ABC:PMDF;PR-XYZ:CBMDF;PP-DEF:DETRAN` |
+| `TOMTOM_KEY` | Liga a camada de trânsito. Chave gratuita em developer.tomtom.com | `abc123…` |
+| `WAZE_FEED_URL` | Liga a camada do Waze. É a URL do feed no Partner Hub (Toolbox → Waze Data Feed), a que termina em `?format=1` | `https://www.waze.com/row-partnerhub-api/partners/…/waze-feeds/…?format=1` |
+| `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | Opcional. Aumenta o limite da fonte reserva de voos | — |
+
+Cores dos órgãos: **DETRAN** em ciano, **PMDF** em azul, **CBMDF** em vermelho e os demais em lilás. Helicópteros sem órgão ficam em amarelo; aviões, em branco.
+
+**Limites das fontes:**
+- Nem toda aeronave transmite ADS-B, e aeronaves de segurança pública às vezes desligam ou filtram o sinal. A camada mostra só o que as antenas comunitárias captam.
+- O plano gratuito da TomTom e os dados do adsb.lol e do OpenSky são para uso não comercial. Confira os termos para uso institucional.
+
+### Como cadastrar uma variável no Render
+
+1. Em dashboard.render.com, abra o serviço **geodados-df**.
+2. No menu da esquerda, clique em **Environment**.
+3. Clique em **+ Add Environment Variable**, preencha **Key** (ex.: `TOMTOM_KEY`) e **Value** (a chave), sem espaços antes ou depois.
+4. Clique em **Save, rebuild, and deploy**. O site reinicia em 1 ou 2 minutos, já com a camada liberada.
+
+Os dados do Waze exigem a atribuição "Dados: Waze", que já aparece no painel. Eles só podem ser usados conforme o acordo de parceria do Waze for Cities; como o site é privado e com login, o uso fica restrito à equipe.

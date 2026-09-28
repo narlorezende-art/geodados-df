@@ -24,6 +24,11 @@
   .mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
   form{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:26px 24px 22px;display:grid;gap:16px;
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .wrap{animation:entra .9s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .mark{animation:pulsa 3.2s ease-in-out infinite}
+  @keyframes pulsa{50%{box-shadow:0 0 20px rgba(70,213,229,.9)}}
+  @media (prefers-reduced-motion:reduce){.wrap,.mark{animation:none}}
   form::before{content:"";position:absolute;left:16px;right:16px;top:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
   h1{margin:0;font:600 22px/1.15 "Chakra Petch",sans-serif;letter-spacing:.04em;text-wrap:balance}
   .sub{margin:-8px 0 2px;color:var(--muted);font-size:13.5px}
@@ -43,7 +48,6 @@
 <div class="wrap">
   <div class="brand"><span class="mark" aria-hidden="true"></span>CCOTRAN<span class="sl">//</span>DF</div>
   <form method="post" action="/login" autocomplete="on">
-    <h1>Acesso restrito</h1>
     <div class="err" id="err" hidden>Usuário ou senha incorretos. Confira e tente de novo.</div>
     <label for="usuario">Usuário
       <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
@@ -63,28 +67,48 @@
     e.hidden = false;
   }
   if (q.get("next")) document.getElementById("next").value = q.get("next");
-  // fundo: grade de radar com pontos
+  // fundo: radar com varredura lenta; os pontos acendem quando o feixe passa
   (function () {
     const c = document.getElementById("bg"), x = c.getContext("2d");
-    function draw() {
-      const r = devicePixelRatio || 1, w = innerWidth, h = innerHeight;
-      c.width = w * r; c.height = h * r; x.setTransform(r, 0, 0, r, 0, 0); x.clearRect(0, 0, w, h);
-      const cx = w / 2, cy = h / 2;
-      x.strokeStyle = "rgba(70,213,229,.07)"; x.lineWidth = 1;
-      for (let i = 0; i < w; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); }
-      for (let j = 0; j < h; j += 32) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); }
-      x.strokeStyle = "rgba(70,213,229,.12)";
-      for (let k = 1; k < 7; k++) { x.beginPath(); x.arc(cx, cy, k * 120, 0, Math.PI * 2); x.stroke(); }
+    const calmo = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let w, h, cx, cy, R, base, pts = [];
+    function prepara() {
+      const r = devicePixelRatio || 1; w = innerWidth; h = innerHeight;
+      c.width = w * r; c.height = h * r; x.setTransform(r, 0, 0, r, 0, 0);
+      cx = w / 2; cy = h / 2; R = Math.hypot(w, h) / 2;
+      base = document.createElement("canvas"); base.width = w * r; base.height = h * r;
+      const b = base.getContext("2d"); b.setTransform(r, 0, 0, r, 0, 0);
+      b.strokeStyle = "rgba(70,213,229,.06)"; b.lineWidth = 1;
+      for (let i = 0; i < w; i += 32) { b.beginPath(); b.moveTo(i, 0); b.lineTo(i, h); b.stroke(); }
+      for (let j = 0; j < h; j += 32) { b.beginPath(); b.moveTo(0, j); b.lineTo(w, j); b.stroke(); }
+      b.strokeStyle = "rgba(70,213,229,.11)";
+      for (let k = 1; k < 8; k++) { b.beginPath(); b.arc(cx, cy, k * 120, 0, Math.PI * 2); b.stroke(); }
       let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-      const cols = ["#46D5E5"];
-      for (let k = 0; k < 110; k++) {
-        const a = rnd() * Math.PI * 2, d = 60 + rnd() * Math.max(w, h) * 0.55;
-        x.fillStyle = cols[0]; x.globalAlpha = .25 + rnd() * .45;
-        x.beginPath(); x.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, 2.2, 0, 7); x.fill();
-      }
-      x.globalAlpha = 1;
+      pts = Array.from({ length: 120 }, () => { const a = rnd() * Math.PI * 2, d = 60 + rnd() * R * 0.9; return { x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.72, a: Math.atan2(Math.sin(a) * d * 0.72, Math.cos(a) * d) }; });
     }
-    draw(); addEventListener("resize", draw);
+    function quadro(t) {
+      x.clearRect(0, 0, w, h);
+      x.drawImage(base, 0, 0, w, h);
+      const ang = calmo ? -1 : (t / 9000) * Math.PI * 2 % (Math.PI * 2);   // uma volta a cada 9 s
+      if (!calmo) {
+        const g = x.createConicGradient ? x.createConicGradient(ang - 0.6, cx, cy) : null;
+        if (g) {
+          g.addColorStop(0, "rgba(70,213,229,0)"); g.addColorStop(0.095, "rgba(70,213,229,.10)"); g.addColorStop(0.0955, "rgba(70,213,229,0)");
+          x.fillStyle = g; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, R, ang - 0.6, ang); x.closePath(); x.fill();
+        }
+        x.strokeStyle = "rgba(70,213,229,.35)"; x.lineWidth = 1;
+        x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R); x.stroke();
+      }
+      for (const p of pts) {
+        let d = ang - p.a; d = ((d % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const brilho = calmo ? 0.4 : Math.max(0.12, 1 - d / 2.2);
+        x.fillStyle = `rgba(70,213,229,${(brilho * 0.8).toFixed(3)})`;
+        x.beginPath(); x.arc(p.x, p.y, 2.1, 0, 7); x.fill();
+      }
+      if (!calmo) requestAnimationFrame(quadro);
+    }
+    prepara(); addEventListener("resize", prepara);
+    requestAnimationFrame(quadro);
   })();
 </script>
 </body>

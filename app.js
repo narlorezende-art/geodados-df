@@ -22,7 +22,7 @@ const RAMP_RAIN = [[0.1, "#9BE7FF"], [0.5, "#5CC8FF"], [1, "#2E9BFF"], [2.5, "#2
 const state = {
   items: [], byId: new Map(),
   types: new Set(Object.keys(TYPES)), dirs: new Set(Object.keys(DIRS)), ras: new Set(), q: "",
-  selected: null, listLimit: PAGE, has3D: false, tilted: true, cluster: false, base: "sat",
+  selected: null, listLimit: PAGE, has3D: false, tilted: true, cluster: true, base: "sat", showMeters: false,
   config: { googleMapsKey: "", cesiumIonToken: "", gdf: [] },
   gdfList: [], histIndex: 0, gdfLayer: null,
   wx: { data: null, hour: 0, on: { chuva: false, temp: false }, layers: {}, cache: {}, playing: null },
@@ -157,7 +157,8 @@ async function initGlobe() {
   }
 
   const cl = ds.clustering;
-  cl.pixelRange = 38; cl.minimumClusterSize = 3; cl.enabled = false;
+  cl.pixelRange = 38; cl.minimumClusterSize = 3; cl.enabled = state.cluster;
+  ds.show = state.showMeters;          // ao entrar, nenhuma camada ligada
   const clusterIcons = new Map();
   cl.clusterEvent.addEventListener((entities, cluster) => {
     const n = entities.length;
@@ -183,6 +184,7 @@ async function initGlobe() {
     if (!p || !p.id) return;
     if (Array.isArray(p.id)) return zoomToEntities(p.id);
     if (p.id instanceof C.Entity && state.byId.has(p.id.id)) select(p.id.id, true);
+    else if (p.id.gdAir) flyToAircraft(p.id.gdAir);
   }, C.ScreenSpaceEventType.LEFT_CLICK);
 
   for (const ev of ["pointerdown", "wheel", "touchstart"]) scene.canvas.addEventListener(ev, () => stopOrbit(), { passive: true });
@@ -209,7 +211,10 @@ function hover(pos) {
   else if (p && p.id && state.byId.has(p.id.id)) {
     const it = state.byId.get(p.id.id);
     html = `<b>${it.id}</b><span>${TYPES[it.t].name} · ${esc(it.ra)}</span>`;
-  }
+  } else if (p && p.id && p.id.gdAir) html = airTip(p.id.gdAir);
+  else if (p && p.id && p.id.gdFire) html = fireTip(p.id.gdFire);
+  else if (p && p.id && p.id.gdWaze) html = wazeTip(p.id.gdWaze);
+  else if (p && p.id && p.id.gdJam) html = jamTip(p.id.gdJam);
   viewer.scene.canvas.style.cursor = html ? "pointer" : "";
   if (!html) return (tip.hidden = true);
   tip.innerHTML = html;
@@ -288,7 +293,7 @@ function setBase(key) {
   // "Satélite ▾" fica marcado para qualquer fonte de satélite; a fonte aparece na barra logo abaixo
   const isSat = key === "sat" || key === "clarity";
   document.querySelectorAll("#baseSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.base === key || (isSat && b.dataset.base === "sat"))));
-  $("satBar").hidden = !isSat;
+  if (!isSat) closeSatMenu();
   document.querySelectorAll("#satBar [data-sat]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sat === key)));
   $("histBar").hidden = key !== "hist";
   if (key === "hist") showHistLabel();
@@ -758,6 +763,414 @@ function togglePlay() {
   }, 900);
 }
 
+/* ================= camada: medidores (liga/desliga) ================= */
+function setMeters(on) {
+  state.showMeters = on;
+  if (ds) { ds.show = on; viewer.scene.requestRender(); }
+  if (!on && state.selected) closeCard();
+}
+
+/* ================= satélite: menu da fonte ================= */
+function openSatMenu() {
+  $("satBar").hidden = false;
+  $("satCaret").setAttribute("aria-expanded", "true");
+}
+function closeSatMenu() {
+  $("satBar").hidden = true;
+  $("satCaret").setAttribute("aria-expanded", "false");
+}
+
+/* ================= tráfego aéreo (ADS-B) ================= */
+const DF_SOLO = 1050;                    // altitude média do terreno no DF (m), usada sem relevo 3D
+const ORGAO_COR = { DETRAN: "#46D5E5", PMDF: "#5B8CFF", CBMDF: "#FF4B3E" };
+const orgaoCor = (o) => ORGAO_COR[o] || (o ? "#B98CFF" : null);
+const air = { on: false, ds: null, timer: 0, tick: 0, ents: new Map(), data: null, heli: true, aviao: true };
+
+function planeSVG(color, size = 26) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="${size}" height="${size}">
+    <path d="M16 2.5c1.2 0 2 1.3 2 3v7.2l10.5 6.1v2.6L18 18.3v6.2l3.4 2.6v2.1L16 27.8l-5.4 1.4v-2.1l3.4-2.6v-6.2L3.5 21.4v-2.6L14 12.7V5.5c0-1.7.8-3 2-3z"
+      fill="${color}" stroke="#05080B" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+}
+function heliSVG(color, size = 34) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="${size}" height="${size}">
+    <circle cx="20" cy="17" r="15" fill="none" stroke="${color}" stroke-width="1.4" stroke-dasharray="3 3" opacity=".75"/>
+    <path d="M4 17h32M20 2v30" stroke="${color}" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+    <ellipse cx="20" cy="17" rx="5.5" ry="7.5" fill="${color}" stroke="#05080B" stroke-width="1.3"/>
+    <path d="M20 24.5v11M16.5 35.5h7" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="20" cy="14.5" r="2.2" fill="#05080B" opacity=".55"/></svg>`;
+}
+const airIcons = new Map();
+function airIcon(a) {
+  const cor = orgaoCor(a.orgao) || (a.heli ? "#F2B84B" : "#DCE7EE");
+  const key = (a.heli ? "h" : "p") + cor;
+  if (!airIcons.has(key)) airIcons.set(key, svgURL(a.heli ? heliSVG(cor) : planeSVG(cor)));
+  return airIcons.get(key);
+}
+
+function toggleAir(on) {
+  air.on = on;
+  $("chipAereo").hidden = !on;
+  if (on) {
+    if (!air.ds) { air.ds = new Cesium.CustomDataSource("aereo"); viewer.dataSources.add(air.ds); }
+    air.ds.show = true;
+    pollAir();
+    air.timer = setInterval(pollAir, 10000);
+    air.tick = setInterval(() => viewer.scene.requestRender(), 250);   // movimento suave entre atualizações
+  } else {
+    clearInterval(air.timer); clearInterval(air.tick);
+    if (air.ds) air.ds.entities.removeAll();
+    air.ents.clear();
+    $("cntAereo").textContent = ""; $("orgList").innerHTML = "";
+    viewer.scene.requestRender();
+  }
+}
+
+async function pollAir() {
+  if (!air.on) return;
+  try {
+    const d = await getJSON("/api/aeronaves");
+    if (!air.on) return;
+    air.data = d;
+    drawAir(d);
+    const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(d.hora * 1000));
+    $("aereoNote").textContent = `${d.desatualizado ? "Sem resposta agora · última leitura" : "Fonte " + d.fonte + " (ADS-B)"} · ${hora}`;
+    $("aereoNote").classList.toggle("warn", !!d.desatualizado);
+  } catch (e) {
+    $("aereoNote").textContent = (e.body && e.body.erro) || "Tráfego aéreo indisponível no momento. Nova tentativa em 10 s.";
+    $("aereoNote").classList.add("warn");
+  }
+}
+
+function drawAir(d) {
+  const C = Cesium, agora = Date.now(), vistos = new Set();
+  let nH = 0, nA = 0; const orgs = {};
+  for (const a of d.aeronaves) {
+    if (a.heli) nH++; else nA++;
+    if (a.orgao) orgs[a.orgao] = (orgs[a.orgao] || 0) + 1;
+    vistos.add(a.hex);
+    const fix = { ...a, t0: agora - Math.min(30, a.idade || 0) * 1000 };
+    let r = air.ents.get(a.hex);
+    if (!r) {
+      r = { fix, trail: [] };
+      const pos = new C.CallbackProperty(() => airPosition(r.fix), false);
+      const destaque = a.heli || a.orgao;
+      r.ent = air.ds.entities.add({
+        id: "ac:" + a.hex, position: pos,
+        billboard: {
+          image: airIcon(a), width: a.heli ? 34 : 24, height: a.heli ? 34 : 24,
+          rotation: 0, alignedAxis: C.Cartesian3.UNIT_Z, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          scaleByDistance: new C.NearFarScalar(2000, 1.2, 150000, 0.6),
+        },
+        label: {
+          text: airLabel(a), show: !!destaque, font: "600 11.5px 'IBM Plex Mono', monospace",
+          fillColor: C.Color.fromCssColorString(orgaoCor(a.orgao) || "#F2B84B"), outlineColor: C.Color.fromCssColorString("#05080B"), outlineWidth: 3,
+          style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -24), disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          scaleByDistance: new C.NearFarScalar(2000, 1, 150000, 0.7),
+        },
+        polyline: destaque ? {   // haste até o chão, como nos medidores
+          positions: new C.CallbackProperty(() => { const top = airPosition(r.fix); const g = C.Cartographic.fromCartesian(top); return [C.Cartesian3.fromRadians(g.longitude, g.latitude, groundHeightGuess()), top]; }, false),
+          width: 1.5, material: C.Color.fromCssColorString(orgaoCor(a.orgao) || "#F2B84B").withAlpha(0.45), arcType: C.ArcType.NONE,
+        } : undefined,
+      });
+      r.ent.gdAir = r;
+      if (destaque) {
+        r.trailEnt = air.ds.entities.add({
+          polyline: { positions: new C.CallbackProperty(() => r.trail, false), width: 2, arcType: C.ArcType.NONE,
+            material: new C.PolylineGlowMaterialProperty({ glowPower: 0.2, color: C.Color.fromCssColorString(orgaoCor(a.orgao) || "#F2B84B").withAlpha(0.7) }) },
+        });
+        r.trailEnt.gdAir = r;
+      }
+      air.ents.set(a.hex, r);
+    } else {
+      r.fix = fix;
+      r.ent.billboard.image = airIcon(a);
+      r.ent.label.text = airLabel(a);
+    }
+    r.ent.billboard.rotation = -C.Math.toRadians(a.rumo || 0);
+    if (r.trailEnt) { r.trail.push(airPosition(fix)); if (r.trail.length > 30) r.trail.shift(); }
+    const mostra = a.heli ? air.heli : air.aviao;
+    r.ent.show = mostra; if (r.trailEnt) r.trailEnt.show = mostra;
+  }
+  for (const [hex, r] of air.ents) {             // sumiu do radar
+    if (!vistos.has(hex)) { air.ds.entities.remove(r.ent); if (r.trailEnt) air.ds.entities.remove(r.trailEnt); air.ents.delete(hex); }
+  }
+  const tot = (air.heli ? nH : 0) + (air.aviao ? nA : 0);
+  $("nHeli").textContent = nH; $("nAviao").textContent = nA;
+  $("cntAereo").textContent = tot; $("aereoTop").textContent = tot;
+  $("orgList").innerHTML = Object.entries(orgs).map(([o, n]) => `<span class="org"><i style="background:${orgaoCor(o)}"></i>${esc(o)} <b>${n}</b></span>`).join("");
+  viewer.scene.requestRender();
+}
+
+// posição estimada agora, a partir da última leitura (velocidade e rumo)
+function airPosition(f) {
+  const dt = Math.min(30, (Date.now() - f.t0) / 1000);
+  const dist = f.chao ? 0 : (f.vel / 3.6) * dt, rumo = Cesium.Math.toRadians(f.rumo || 0);
+  const lat = f.lat + (dist * Math.cos(rumo)) / 111320;
+  const lon = f.lon + (dist * Math.sin(rumo)) / (111320 * Math.cos(Cesium.Math.toRadians(f.lat)));
+  const h = state.has3D ? f.alt : Math.max(f.chao ? 5 : 25, f.alt - DF_SOLO);
+  return Cesium.Cartesian3.fromDegrees(lon, lat, h);
+}
+
+const airLabel = (a) => [a.voo || a.reg || a.hex.toUpperCase(), a.orgao].filter(Boolean).join(" · ");
+
+function airTip(r) {
+  const a = r.fix, ft = Math.round(a.alt / 0.3048);
+  const nome = a.voo || a.reg || a.hex.toUpperCase();
+  const det = [a.orgao, a.heli ? "Helicóptero" : "Avião", a.tipo, a.reg && a.reg !== nome ? a.reg : ""].filter(Boolean).join(" · ");
+  const alt = a.chao ? "no solo" : `${a.alt.toLocaleString("pt-BR")} m (${ft.toLocaleString("pt-BR")} ft)`;
+  return `<b>${esc(nome)}</b><span>${esc(det)}<br>${alt} · ${a.vel} km/h · rumo ${Math.round(a.rumo)}°</span>`;
+}
+
+function flyToAircraft(r) {
+  stopOrbit();
+  const C = Cesium, p = airPosition(r.fix);
+  viewer.camera.flyToBoundingSphere(new C.BoundingSphere(p, 10), {
+    offset: new C.HeadingPitchRange(C.Math.toRadians(r.fix.rumo || 0) + Math.PI, C.Math.toRadians(-25), 1800), duration: 1.5,
+  });
+}
+
+function filterAir() {
+  for (const r of air.ents.values()) {
+    const mostra = r.fix.heli ? air.heli : air.aviao;
+    r.ent.show = mostra; if (r.trailEnt) r.trailEnt.show = mostra;
+  }
+  if (air.data) drawAir(air.data);
+}
+
+/* ================= trânsito em tempo real (TomTom, via servidor) ================= */
+const traffic = { layer: null, timer: 0 };
+const TRANSITO_RECT = [-48.70, -16.45, -47.05, -15.20];
+
+function trafficLayer() {
+  const prov = new Cesium.UrlTemplateImageryProvider({
+    url: `/transito/{z}/{x}/{y}?t=${Math.floor(Date.now() / 120000)}`,
+    rectangle: Cesium.Rectangle.fromDegrees(...TRANSITO_RECT), minimumLevel: 6, maximumLevel: 18,
+    credit: "Trânsito © TomTom",
+  });
+  const l = viewer.imageryLayers.addImageryProvider(prov);
+  l.alpha = Number($("opTransito").value) / 100;
+  return l;
+}
+
+function toggleTraffic(on) {
+  const L = viewer.imageryLayers;
+  clearInterval(traffic.timer);
+  if (traffic.layer) { L.remove(traffic.layer, true); traffic.layer = null; }
+  $("cntTransito").textContent = on ? "ao vivo" : "";
+  if (!on) return viewer.scene.requestRender();
+  traffic.layer = trafficLayer();
+  traffic.timer = setInterval(() => {             // renova a cada 2 min sem piscar
+    const old = traffic.layer;
+    traffic.layer = trafficLayer();
+    setTimeout(() => { L.remove(old, true); viewer.scene.requestRender(); }, 2500);
+  }, 120000);
+  viewer.scene.requestRender();
+}
+
+/* ================= focos de queimada (INPE) ================= */
+const fire = { on: false, ds: null, timer: 0 };
+const fireColor = (h) => (h <= 6 ? "#FF3B1F" : h <= 24 ? "#FF8A1F" : "#C9A227");
+
+function toggleFire(on) {
+  fire.on = on;
+  clearInterval(fire.timer);
+  if (!fire.ds) { fire.ds = new Cesium.CustomDataSource("queimadas"); viewer.dataSources.add(fire.ds); }
+  fire.ds.show = on;
+  if (!on) { $("cntFogo").textContent = ""; return viewer.scene.requestRender(); }
+  loadFire();
+  fire.timer = setInterval(loadFire, 30 * 60 * 1000);
+}
+
+async function loadFire() {
+  try {
+    const d = await getJSON("/api/queimadas");
+    if (!fire.on) return;
+    const C = Cesium;
+    fire.ds.entities.removeAll();
+    for (const f of d.focos) {
+      const cor = C.Color.fromCssColorString(fireColor(f.horas));
+      const e = fire.ds.entities.add({
+        position: C.Cartesian3.fromDegrees(f.lon, f.lat),
+        point: {
+          pixelSize: f.horas <= 6 ? 11 : 8, color: cor.withAlpha(0.95), outlineColor: cor.withAlpha(0.35), outlineWidth: 6,
+          heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          scaleByDistance: new C.NearFarScalar(2000, 1.3, 200000, 0.7),
+        },
+      });
+      e.gdFire = f;
+    }
+    const noDF = d.focos.filter((f) => /distrito federal/i.test(f.uf)).length;
+    $("cntFogo").textContent = d.focos.length;
+    const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(d.atualizado));
+    $("fogoNote").textContent = d.focos.length
+      ? `${d.focos.length} focos em 48 h (${noDF} no DF, ${d.focos.length - noDF} no entorno) · INPE · ${hora}`
+      : `Nenhum foco de calor no DF e entorno nas últimas 48 h · INPE · ${hora}`;
+    $("fogoNote").classList.toggle("warn", !!d.desatualizado);
+    viewer.scene.requestRender();
+  } catch (e) {
+    $("fogoNote").textContent = (e.body && e.body.erro) || "Focos de queimada indisponíveis no momento.";
+    $("fogoNote").classList.add("warn");
+  }
+}
+
+function fireTip(f) {
+  const quando = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(f.hora));
+  const frp = f.frp != null ? ` · ${String(f.frp).replace(".", ",")} MW` : "";
+  return `<b>Foco de calor</b><span>${esc(f.mun)}${f.uf ? " / " + esc(f.uf) : ""}<br>${quando} (há ${String(f.horas).replace(".", ",")} h) · ${esc(f.sat)}${frp}</span>`;
+}
+
+/* ---------- controles das novas camadas ---------- */
+function initNewLayers() {
+  $("icoHeli").innerHTML = heliSVG("#F2B84B", 28);
+  $("icoAviao").innerHTML = planeSVG("#DCE7EE", 22);
+  const needViewer = (fn) => (e) => { if (!viewer) { e.target.checked = false; return; } fn(e.target.checked); };
+  $("swAereo").addEventListener("change", needViewer(toggleAir));
+  $("swHeli").addEventListener("change", (e) => { air.heli = e.target.checked; filterAir(); });
+  $("swAviao").addEventListener("change", (e) => { air.aviao = e.target.checked; filterAir(); });
+  $("swFogo").addEventListener("change", needViewer(toggleFire));
+  if (!state.config.transito) {
+    $("swTransito").disabled = true;
+    $("grpTransito").querySelector(".lg-head").classList.add("disabled");
+    $("grpTransito").querySelector(".lg-head").title = "Precisa da chave TOMTOM_KEY no Render";
+    $("transitoNote").textContent = "Para ativar: crie uma chave gratuita em developer.tomtom.com e cadastre TOMTOM_KEY no Render (Environment).";
+  } else {
+    $("swTransito").addEventListener("change", needViewer(toggleTraffic));
+    $("opTransito").addEventListener("input", (e) => { if (traffic.layer) { traffic.layer.alpha = e.target.value / 100; viewer.scene.requestRender(); } });
+  }
+}
+
+/* ================= Waze for Cities: alertas e congestionamentos ================= */
+const WAZE_CATS = {
+  acidente:   { nome: "Acidentes",            cor: "#FF3B30", glifo: `<path d="M20 10v11" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><circle cx="20" cy="27" r="2" fill="#fff"/>` },
+  alagamento: { nome: "Alagamentos",          cor: "#1E88FF", glifo: `<path d="M20 9c4 5.5 6 8.7 6 11.5a6 6 0 0 1-12 0C14 17.7 16 14.5 20 9z" fill="#fff"/><path d="M11 30c2.2 1.6 4.3 1.6 6.5 0s4.3-1.6 6.5 0 4.3 1.6 6.5 0" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round"/>` },
+  clima:      { nome: "Clima na via",         cor: "#5C9DFF", glifo: `<path d="M13 23a4 4 0 0 1 .6-8 5.5 5.5 0 0 1 10.5 1.3 3.4 3.4 0 0 1-.4 6.7z" fill="#fff"/><path d="M15 27l-1 2.5M20 27l-1 2.5M25 27l-1 2.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>` },
+  perigo:     { nome: "Perigos na via",       cor: "#F2B01E", glifo: `<path d="M20 9l10 18H10z" fill="#fff"/><path d="M20 15v6" stroke="#F2B01E" stroke-width="2.4" stroke-linecap="round"/><circle cx="20" cy="24" r="1.4" fill="#F2B01E"/>` },
+  interdicao: { nome: "Interdições e obras",  cor: "#FF7A1A", glifo: `<rect x="11" y="17" width="18" height="6" rx="1.5" fill="#fff"/><path d="M14 17l3 6M19 17l3 6M24 17l3 6" stroke="#FF7A1A" stroke-width="1.6"/>` },
+  policia:    { nome: "Polícia",              cor: "#7C5CFF", glifo: `<path d="M20 9l8 3v6c0 5-3.4 8.8-8 10.5C15.4 26.8 12 23 12 18v-6z" fill="#fff"/><path d="M20 14l1.5 3 3.2.3-2.4 2 .8 3.2-3.1-1.8-3.1 1.8.8-3.2-2.4-2 3.2-.3z" fill="#7C5CFF"/>` },
+  outro:      { nome: "Outros alertas",       cor: "#8A9BA8", glifo: `<circle cx="14" cy="20" r="2" fill="#fff"/><circle cx="20" cy="20" r="2" fill="#fff"/><circle cx="26" cy="20" r="2" fill="#fff"/>` },
+};
+const JAM_COR = ["#9BD35A", "#F2C12E", "#F2C12E", "#F2842E", "#D63031", "#7A1010"];
+const JAM_NIVEL = ["Fluindo", "Leve", "Moderado", "Intenso", "Muito intenso", "Parado"];
+const wz = { on: false, ds: null, timer: 0, show: new Set([...Object.keys(WAZE_CATS), "jams"]), data: null };
+
+function wazeSVG(cat, size = 30) {
+  const c = WAZE_CATS[cat] || WAZE_CATS.outro;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="${size}" height="${size}">
+    <circle cx="20" cy="20" r="16.5" fill="${c.cor}" stroke="#fff" stroke-width="2.5"/>${c.glifo}</svg>`;
+}
+const wazeIcons = {};
+const wazeIcon = (cat) => wazeIcons[cat] || (wazeIcons[cat] = svgURL(wazeSVG(cat)));
+
+function buildWazeSubs() {
+  const linhas = Object.entries(WAZE_CATS).map(([k, c]) => `
+    <label class="sub" for="wz-${k}">
+      <span class="ico" aria-hidden="true">${wazeSVG(k, 26)}</span>
+      <span class="s-name">${c.nome}</span>
+      <span class="s-n" data-wz="${k}">0</span>
+      <span class="switch"><input type="checkbox" id="wz-${k}" data-cat="${k}" checked><span></span></span>
+    </label>`);
+  linhas.push(`
+    <label class="sub" for="wz-jams">
+      <span class="ico" aria-hidden="true"><i class="jam-key"></i></span>
+      <span class="s-name">Congestionamentos<small>linhas: amarelo → vinho (parado)</small></span>
+      <span class="s-n" data-wz="jams">0</span>
+      <span class="switch"><input type="checkbox" id="wz-jams" data-cat="jams" checked><span></span></span>
+    </label>`);
+  $("wazeSubs").innerHTML = linhas.join("");
+  $("wazeSubs").addEventListener("change", (e) => {
+    const k = e.target.dataset.cat; if (!k) return;
+    e.target.checked ? wz.show.add(k) : wz.show.delete(k);
+    if (wz.data) drawWaze(wz.data);
+  });
+}
+
+function toggleWaze(on) {
+  wz.on = on;
+  clearInterval(wz.timer);
+  if (!wz.ds) { wz.ds = new Cesium.CustomDataSource("waze"); viewer.dataSources.add(wz.ds); }
+  wz.ds.show = on;
+  if (!on) { $("cntWaze").textContent = ""; return viewer.scene.requestRender(); }
+  loadWaze();
+  wz.timer = setInterval(loadWaze, 120000);
+}
+
+async function loadWaze() {
+  try {
+    const d = await getJSON("/api/waze");
+    if (!wz.on) return;
+    wz.data = d;
+    drawWaze(d);
+    const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(new Date(d.atualizado * 1000));
+    $("wazeNote").textContent = `${d.desatualizado ? "Sem resposta agora · última leitura" : "Dados: Waze for Cities"} · ${hora}`;
+    $("wazeNote").classList.toggle("warn", !!d.desatualizado);
+  } catch (e) {
+    $("wazeNote").textContent = (e.body && e.body.erro) || "Feed do Waze indisponível no momento. Nova tentativa em 2 min.";
+    $("wazeNote").classList.add("warn");
+  }
+}
+
+function drawWaze(d) {
+  const C = Cesium;
+  wz.ds.entities.removeAll();
+  const n = {};
+  for (const a of d.alertas) {
+    n[a.cat] = (n[a.cat] || 0) + 1;
+    if (!wz.show.has(a.cat)) continue;
+    const e = wz.ds.entities.add({
+      position: C.Cartesian3.fromDegrees(a.lon, a.lat),
+      billboard: {
+        image: wazeIcon(a.cat), width: a.cat === "acidente" || a.cat === "alagamento" ? 30 : 26, height: a.cat === "acidente" || a.cat === "alagamento" ? 30 : 26,
+        heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        scaleByDistance: new C.NearFarScalar(1500, 1.1, 120000, 0.6),
+      },
+    });
+    e.gdWaze = a;
+  }
+  n.jams = d.congestionamentos.length;
+  if (wz.show.has("jams")) {
+    for (const j of d.congestionamentos) {
+      const e = wz.ds.entities.add({
+        polyline: {
+          positions: C.Cartesian3.fromDegreesArray(j.linha.flat()), width: j.nivel >= 4 ? 6 : 5, clampToGround: true,
+          material: C.Color.fromCssColorString(JAM_COR[Math.max(0, Math.min(5, j.nivel))]).withAlpha(0.9),
+        },
+      });
+      e.gdJam = j;
+    }
+  }
+  document.querySelectorAll("[data-wz]").forEach((el) => { el.textContent = n[el.dataset.wz] || 0; });
+  $("cntWaze").textContent = d.alertas.length + d.congestionamentos.length;
+  viewer.scene.requestRender();
+}
+
+const haQuanto = (ms) => {
+  if (!ms) return "";
+  const min = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return min < 60 ? `há ${min} min` : `há ${Math.floor(min / 60)} h ${min % 60} min`;
+};
+function wazeTip(a) {
+  const onde = [a.rua, a.cidade].filter(Boolean).join(" · ");
+  const conf = a.rel != null ? ` · confiabilidade ${a.rel}/10` : "";
+  const likes = a.likes ? ` · ${a.likes} confirmações` : "";
+  return `<b>${esc(a.rotulo)}</b><span>${esc(onde || "Local sem nome de via")}<br>${haQuanto(a.quando)}${conf}${likes}${a.desc ? "<br>“" + esc(a.desc) + "”" : ""}</span>`;
+}
+function jamTip(j) {
+  const onde = [j.rua, j.cidade].filter(Boolean).join(" · ");
+  const atraso = j.atraso > 0 ? ` · +${Math.round(j.atraso / 60)} min de atraso` : "";
+  return `<b>${JAM_NIVEL[j.nivel] || "Congestionamento"}</b><span>${esc(onde || "Via sem nome")}<br>${j.vel} km/h · ${(j.comp / 1000).toFixed(1).replace(".", ",")} km${atraso}</span>`;
+}
+
+function initWaze() {
+  buildWazeSubs();
+  if (!state.config.waze) {
+    $("swWaze").disabled = true;
+    $("grpWaze").querySelector(".lg-head").classList.add("disabled");
+    $("wazeNote").textContent = "Para ativar: cadastre a URL do seu Waze Data Feed em WAZE_FEED_URL no Render (Environment).";
+    return;
+  }
+  $("swWaze").addEventListener("change", (e) => { if (!viewer) { e.target.checked = false; return; } toggleWaze(e.target.checked); });
+}
+
 /* ================= filtros ================= */
 function matches(it, skip) {
   if (skip !== "t" && !state.types.has(it.t)) return false;
@@ -806,12 +1219,10 @@ function buildUI() {
   $("subMedidores").addEventListener("change", (e) => {
     const k = e.target.id.replace("sw-", "");
     e.target.checked ? state.types.add(k) : state.types.delete(k);
+    if (e.target.checked && !state.showMeters) setMeters(true);   // ligar um tipo liga a camada
     update();
   });
-  $("swMedidores").addEventListener("change", (e) => {
-    state.types = e.target.checked ? new Set(Object.keys(TYPES)) : new Set();
-    update();
-  });
+  $("swMedidores").addEventListener("change", (e) => { setMeters(e.target.checked); update(); });
   document.querySelectorAll(".twisty").forEach((b) => b.addEventListener("click", () => {
     const open = b.getAttribute("aria-expanded") !== "true";
     b.setAttribute("aria-expanded", String(open));
@@ -826,7 +1237,6 @@ function buildUI() {
     $(op).addEventListener("input", (e) => {
       const l = state.wx.layers[kind]; if (l) { l.alpha = e.target.value / 100; viewer.scene.requestRender(); }
     });
-    if (store.get("wx:" + kind, false)) { $(sw).checked = true; state.wx.on[kind] = true; document.querySelector(`.wx[data-wx="${kind}"]`).classList.add("on"); }
   }
   $("wxHour").addEventListener("input", (e) => setHour(Number(e.target.value)));
   $("rainStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) setHour(Number(b.dataset.go)); });
@@ -888,7 +1298,11 @@ function buildUI() {
     const b = e.target.closest("[data-sat]"); if (!b || !viewer) return;
     store.set("satSrc", b.dataset.sat);
     fallbackUsed = false; setBase(b.dataset.sat);
+    closeSatMenu();
   });
+  $("satCaret").addEventListener("click", (e) => { e.stopPropagation(); $("satBar").hidden ? openSatMenu() : closeSatMenu(); });
+  document.querySelector('#baseSeg [data-base="sat"]').addEventListener("dblclick", () => openSatMenu());
+  document.addEventListener("click", (e) => { if (!e.target.closest("#satBar, .split")) closeSatMenu(); });
   // fotos do GDF: lista de anos vem do servidor
   state.gdfList = state.config.gdf || [];
   if (!state.gdfList.length) document.querySelectorAll('#baseSeg [data-base="hist"]').forEach((b) => (b.hidden = true));
@@ -917,6 +1331,9 @@ function buildUI() {
     if (ds) { ds.clustering.enabled = state.cluster; viewer.scene.requestRender(); }
   };
 
+  initNewLayers();
+  initWaze();
+
   // ficha
   $("cardClose").onclick = closeCard;
   $("cOrbit").onclick = () => viewer && toggleOrbit();
@@ -935,7 +1352,6 @@ function showTab(tab) {
 function update() {
   const vis = visibleItems(), n = vis.length;
   $("visCount").textContent = n;
-  $("visTop").textContent = n;
 
   const byT = { CE: 0, RE: 0, NM: 0 };
   vis.forEach((it) => byT[it.t]++);
@@ -952,9 +1368,10 @@ function update() {
     row.querySelector("[data-n]").textContent = ft[k] || 0;
   });
   const sw = $("swMedidores");
-  sw.checked = state.types.size > 0;
-  sw.indeterminate = state.types.size > 0 && state.types.size < 3;
-  $("cntMedidores").textContent = n;
+  sw.checked = state.showMeters;
+  sw.indeterminate = state.showMeters && state.types.size < 3;
+  $("cntMedidores").textContent = state.showMeters ? n : "";
+  $("visTop").textContent = state.showMeters ? n : 0;
 
   document.querySelectorAll("#dirChips .chip").forEach((b) => {
     b.setAttribute("aria-pressed", String(state.dirs.has(b.dataset.s)));

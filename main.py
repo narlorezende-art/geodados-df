@@ -21,8 +21,12 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+import aereo
 import clima
 import gdf
+import queimadas
+import transito
+import waze
 import dados
 import seguranca
 
@@ -115,7 +119,9 @@ async def exigir_login(request: Request, call_next):
             return _com_cabecalhos(resposta)
         request.state.usuario = usuario
     resposta = await call_next(request)
-    if caminho.startswith("/gdf/"):
+    if caminho.startswith("/transito/"):
+        resposta.headers["Cache-Control"] = "private, max-age=120"   # trânsito muda a cada poucos minutos
+    elif caminho.startswith("/gdf/"):
         # fotos aéreas não mudam: o navegador pode guardar por 7 dias
         resposta.headers["Cache-Control"] = "private, max-age=604800"
     elif caminho.startswith(("/cesium/", "/favicon", "/logo.png")):
@@ -203,6 +209,8 @@ def configuracao():
         "googleMapsKey": os.environ.get("GOOGLE_MAPS_KEY", ""),
         "cesiumIonToken": os.environ.get("CESIUM_ION_TOKEN", ""),
         "gdf": gdf.info(),
+        "transito": transito.ativo(),
+        "waze": waze.ativo(),
     }
 
 
@@ -217,6 +225,44 @@ def previsao_do_tempo():
         return clima.previsao()
     except RuntimeError as erro:
         return JSONResponse({"erro": str(erro)}, status_code=503)
+
+
+@app.get("/api/aeronaves")
+def trafego_aereo():
+    try:
+        return aereo.aeronaves()
+    except RuntimeError as erro:
+        return JSONResponse({"erro": str(erro)}, status_code=503)
+
+
+@app.get("/api/queimadas")
+def focos_de_queimada():
+    try:
+        return queimadas.focos()
+    except (RuntimeError, ValueError) as erro:
+        return JSONResponse({"erro": str(erro)}, status_code=503)
+
+
+@app.get("/api/waze")
+def waze_alertas():
+    try:
+        return waze.dados()
+    except PermissionError as erro:
+        return JSONResponse({"erro": str(erro)}, status_code=404)
+    except RuntimeError as erro:
+        return JSONResponse({"erro": str(erro)}, status_code=503)
+
+
+@app.get("/transito/{z}/{x}/{y}")
+def transito_bloco(z: int, x: int, y: int):
+    try:
+        return Response(transito.bloco(z, x, y), media_type="image/png")
+    except PermissionError as erro:
+        return PlainTextResponse(str(erro), status_code=404)
+    except ValueError as erro:
+        return PlainTextResponse(str(erro), status_code=400)
+    except Exception:
+        return PlainTextResponse("A TomTom não respondeu.", status_code=502)
 
 
 @app.get("/gdf/{servico}/{z}/{x}/{y}")

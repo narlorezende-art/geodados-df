@@ -8,7 +8,7 @@
   --ce:#C0801C; --re:#4A90E0; --nm:#D15A7F;
   --ok:#5BD69A; --warn:#F2B84B;
   --shadow:0 12px 40px rgba(0,0,0,.45);
-  --panel-w:360px; --top:48px; --bottom:26px;
+  --panel-w:360px; --top:26px; --bottom:26px; --logo:46px;
   color-scheme: dark;
 }
 *{box-sizing:border-box}
@@ -282,3 +282,36 @@ h3{margin:0;font:600 11.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-
 /* ---------- fonte do satélite ---------- */
 .caret{font-size:9px;opacity:.7;margin-left:2px}
 .mt-sat{padding:3px}
+
+/* ---------- barra superior fina (mesma altura da inferior) + logo em destaque ---------- */
+.topbar{gap:12px;padding:0 12px 0 calc(var(--logo) + 20px)}
+.brand{font-size:12px;letter-spacing:.16em;gap:0}
+.brand-logo{position:fixed;z-index:25;top:calc(3px + env(safe-area-inset-top,0px));left:12px;width:var(--logo);height:var(--logo);
+  box-shadow:0 0 0 1px rgba(70,213,229,.6),0 0 16px rgba(70,213,229,.35),0 6px 18px rgba(0,0,0,.5)}
+.tb-chip{font-size:11px;padding:1px 8px;gap:6px}
+.tb-user{font-size:11.5px}
+.live{width:6px;height:6px}
+.panel,.rail{top:calc(var(--top) + var(--logo) - 12px)}
+.maptools{top:calc(var(--top) + 8px)}
+
+/* ---------- satélite: botão dividido com setinha (como um filtro do Excel) ---------- */
+.split{display:inline-flex;align-items:stretch}
+.split > button[data-base]{border-radius:5px 0 0 5px;padding-right:5px}
+.caret-btn{border-radius:0 5px 5px 0!important;padding:4px 5px!important;font-size:9px!important;line-height:1;color:var(--muted)!important;
+  border-left:1px solid var(--line)!important}
+.caret-btn:hover,.caret-btn[aria-expanded="true"]{color:var(--accent)!important;background:rgba(255,255,255,.06)!important}
+
+/* ---------- tráfego aéreo, trânsito, queimadas ---------- */
+.orgs{display:flex;flex-wrap:wrap;gap:5px;padding:6px 6px 0}
+.org{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;border:1px solid var(--line-2);border-radius:4px;padding:2px 8px}
+.org i{width:9px;height:9px;border-radius:50%}
+.org b{font-family:"IBM Plex Mono",monospace;font-weight:600;color:var(--accent)}
+.fire-key{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);padding:2px 6px}
+.fire-key span{display:inline-flex;align-items:center;gap:6px}
+.fire-key i{width:10px;height:10px;border-radius:50%;box-shadow:0 0 6px currentColor}
+.lg-head.disabled .lg-title{color:var(--dim)}
+#sublayers-note{font-size:11px}
+@media (max-width:760px){ :root{--logo:38px} .tb-chips{display:none} }
+
+/* ---------- Waze ---------- */
+.jam-key{display:inline-block;width:22px;height:5px;border-radius:3px;background:linear-gradient(90deg,#F2C12E,#F2842E,#D63031,#7A1010)}

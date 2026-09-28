@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
-<link rel="stylesheet" href="/app.css?v=10">
+<link rel="stylesheet" href="/app.css?v=12">
 <script>window.CESIUM_BASE_URL = "/cesium/";</script>
 <script src="/cesium/Cesium.js" defer></script>
-<script src="/app.js?v=10" defer></script>
+<script src="/app.js?v=12" defer></script>
 </head>
 <body>
 <div id="map" aria-label="Globo 3D do Distrito Federal"></div>
@@ -23,7 +23,8 @@
 <header class="topbar">
   <div class="brand"><img class="brand-logo" src="/logo.png" alt="Logo CCOTRAN" width="36" height="36">CCOTRAN<span class="sl">//</span>DF</div>
   <div class="tb-chips">
-    <span class="tb-chip"><i class="live" aria-hidden="true"></i><b id="visTop">407</b> medidores</span>
+    <span class="tb-chip"><i class="live" aria-hidden="true"></i><b id="visTop">0</b> medidores</span>
+    <span class="tb-chip" id="chipAereo" hidden>✈ <b id="aereoTop">0</b> aeronaves</span>
     <span class="tb-chip mono" id="clockBrt">--:--:-- BRT</span>
     <span class="tb-chip mono dim" id="clockUtc">--:-- UTC</span>
   </div>
@@ -48,21 +49,21 @@
     <section class="tabpane" data-pane="camadas">
       <div class="layer-group" id="grpMedidores">
         <div class="lg-head">
-          <button type="button" class="twisty" aria-expanded="true" aria-controls="subMedidores" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subMedidores" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
           <span class="lg-title">Medidores de Velocidade</span>
           <span class="lg-count mono" id="cntMedidores">407</span>
-          <label class="switch" title="Mostrar ou ocultar todos"><input type="checkbox" id="swMedidores" checked><span></span></label>
+          <label class="switch" title="Mostrar ou ocultar a camada"><input type="checkbox" id="swMedidores"><span></span></label>
         </div>
-        <div class="sublayers" id="subMedidores"></div>
+        <div class="sublayers" id="subMedidores" hidden></div>
       </div>
 
       <div class="layer-group" id="grpClima">
         <div class="lg-head">
-          <button type="button" class="twisty" aria-expanded="true" aria-controls="subClima" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subClima" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
           <span class="lg-title">Previsão do tempo</span>
           <span class="lg-count mono" id="climaStatus">…</span>
         </div>
-        <div class="sublayers" id="subClima">
+        <div class="sublayers" id="subClima" hidden>
           <div class="wx" data-wx="chuva">
             <div class="wx-row">
               <span class="wx-ico" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M5.5 12.5a3.5 3.5 0 0 1 .4-7 4.5 4.5 0 0 1 8.4 1.2 3 3 0 0 1-.3 5.8z"/><path d="M7 15l-1 2.5M10.5 15l-1 2.5M14 15l-1 2.5"/></svg></span>
@@ -95,6 +96,76 @@
             </div>
           </div>
           <p class="wx-note dim" id="wxNote">Fonte: Open-Meteo · grade de ~9 km sobre o DF</p>
+        </div>
+      </div>
+
+      <div class="layer-group" id="grpAereo">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subAereo" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Tráfego aéreo</span>
+          <span class="lg-count mono" id="cntAereo"></span>
+          <label class="switch" title="Mostrar ou ocultar a camada"><input type="checkbox" id="swAereo"><span></span></label>
+        </div>
+        <div class="sublayers" id="subAereo" hidden>
+          <label class="sub" for="swHeli">
+            <span class="ico" aria-hidden="true" id="icoHeli"></span>
+            <span class="s-name">Helicópteros<small>asa rotativa · órgãos em destaque</small></span>
+            <span class="s-n" id="nHeli">0</span>
+            <span class="switch"><input type="checkbox" id="swHeli" checked><span></span></span>
+          </label>
+          <label class="sub" for="swAviao">
+            <span class="ico" aria-hidden="true" id="icoAviao"></span>
+            <span class="s-name">Aviões<small>comerciais, executivos e demais</small></span>
+            <span class="s-n" id="nAviao">0</span>
+            <span class="switch"><input type="checkbox" id="swAviao" checked><span></span></span>
+          </label>
+          <div class="orgs" id="orgList"></div>
+          <p class="wx-note dim" id="aereoNote">Dados ADS-B abertos · atualiza a cada 10 s</p>
+        </div>
+      </div>
+
+      <div class="layer-group" id="grpTransito">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subTransito" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Trânsito em tempo real</span>
+          <span class="lg-count mono" id="cntTransito"></span>
+          <label class="switch" title="Mostrar ou ocultar a camada"><input type="checkbox" id="swTransito"><span></span></label>
+        </div>
+        <div class="sublayers" id="subTransito" hidden>
+          <div class="ramp"><div class="bar" style="background:linear-gradient(90deg,#1FAA59 0%,#1FAA59 25%,#F2C12E 45%,#F2842E 65%,#D63031 85%,#7A1010 100%)"></div>
+            <div class="ticks"><span>livre</span><span>moderado</span><span>lento</span><span>parado</span></div></div>
+          <label class="op"><span>Opacidade</span><input type="range" id="opTransito" min="20" max="100" value="90"></label>
+          <p class="wx-note dim" id="transitoNote">Fonte: TomTom · atualiza a cada 2 min</p>
+        </div>
+      </div>
+
+      <div class="layer-group" id="grpWaze">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subWaze" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Waze · ocorrências</span>
+          <span class="lg-count mono" id="cntWaze"></span>
+          <label class="switch" title="Mostrar ou ocultar a camada"><input type="checkbox" id="swWaze"><span></span></label>
+        </div>
+        <div class="sublayers" id="subWaze" hidden>
+          <div id="wazeSubs"></div>
+          <p class="wx-note dim" id="wazeNote">Dados: Waze for Cities · atualiza a cada 2 min</p>
+        </div>
+      </div>
+
+      <div class="layer-group" id="grpFogo">
+        <div class="lg-head">
+          <button type="button" class="twisty" aria-expanded="false" aria-controls="subFogo" aria-label="Mostrar subcamadas"><svg viewBox="0 0 12 12"><path d="M3 4.5l3 3 3-3"/></svg></button>
+          <span class="lg-title">Focos de queimada</span>
+          <span class="lg-count mono" id="cntFogo"></span>
+          <label class="switch" title="Mostrar ou ocultar a camada"><input type="checkbox" id="swFogo"><span></span></label>
+        </div>
+        <div class="sublayers" id="subFogo" hidden>
+          <div class="fire-key">
+            <span><i style="background:#FF3B1F"></i>até 6 h</span>
+            <span><i style="background:#FF8A1F"></i>6–24 h</span>
+            <span><i style="background:#C9A227"></i>24–48 h</span>
+          </div>
+          <p class="wx-note dim" id="fogoNote">Fonte: INPE — Programa Queimadas · DF e entorno · últimas 48 h</p>
         </div>
       </div>
 
@@ -135,7 +206,9 @@
 <div class="maptools" role="toolbar" aria-label="Mapa base e visualização">
   <div class="mt-group" id="baseSeg" role="radiogroup" aria-label="Mapa base">
     <span class="mt-label">Base</span>
-    <button type="button" data-base="sat" aria-pressed="true" title="Imagem de satélite (escolha a fonte logo abaixo)">Satélite <span class="caret" aria-hidden="true">▾</span></button>
+    <span class="split">
+      <button type="button" data-base="sat" aria-pressed="true" title="Imagem de satélite (duplo clique para escolher a fonte)">Satélite</button><button type="button" class="caret-btn" id="satCaret" aria-label="Escolher a fonte do satélite" aria-expanded="false" aria-controls="satBar" title="Escolher a fonte do satélite">▾</button>
+    </span>
     <button type="button" data-base="hist" aria-pressed="false" title="Fotos aéreas e imagens do GDF, de 1964 a 2024 (inclui a foto de 2024 com 8 cm por pixel)">Histórico</button>
     <button type="button" data-base="hib" aria-pressed="false" title="Satélite com nomes de ruas">Híbrido</button>
     <button type="button" data-base="ruas" aria-pressed="false" title="Mapa de ruas Esri">Ruas</button>
@@ -158,7 +231,7 @@
     <span class="mt-label">Vista</span>
     <button type="button" id="btn3d" aria-pressed="false">3D</button>
     <button type="button" id="btnTilt" aria-pressed="true">Inclinada</button>
-    <button type="button" id="btnCluster" aria-pressed="false">Agrupar</button>
+    <button type="button" id="btnCluster" aria-pressed="true">Agrupar</button>
     <button type="button" id="btnFit" title="Enquadrar os medidores filtrados">Enquadrar</button>
   </div>
 </div>

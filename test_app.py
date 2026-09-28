@@ -314,6 +314,42 @@ def test_adsblol_converte_campos(monkeypatch):
     assert lista[1]["chao"] is True and lista[1]["alt"] == 0
 
 
+def test_juntar_redes_pega_posicao_mais_recente_e_completa_dados():
+    lol = [{"hex": "e4a001", "voo": "", "reg": "", "tipo": "", "cat": "A7", "lat": -15.80, "lon": -47.90, "idade": 8},
+           {"hex": "aaa111", "voo": "GLO1", "reg": "PR-GXA", "tipo": "B738", "cat": "A3", "lat": -15.9, "lon": -47.9, "idade": 2}]
+    fi = [{"hex": "e4a001", "voo": "PMDF01", "reg": "PR-PMA", "tipo": "AS50", "cat": "", "lat": -15.81, "lon": -47.91, "idade": 1},
+          {"hex": "bbb222", "voo": "", "reg": "", "tipo": "", "cat": "", "lat": -15.7, "lon": -47.8, "idade": 500}]
+    junto = {a["hex"]: a for a in aereo.juntar([lol, fi])}
+    assert set(junto) == {"e4a001", "aaa111"}                   # posição velha demais é descartada
+    h = junto["e4a001"]
+    assert (h["lat"], h["voo"], h["reg"], h["tipo"], h["cat"]) == (-15.81, "PMDF01", "PR-PMA", "AS50", "A7")
+
+
+def test_soma_redes_e_informa_por_fonte():
+    aereo.limpar_cache()
+    a = lambda: [{"hex": "1", "voo": "", "reg": "", "tipo": "", "cat": "", "lat": -15.8, "lon": -47.9, "alt": 1, "vel": 1, "rumo": 0, "chao": False, "idade": 1}]  # noqa: E731
+    b = lambda: [{"hex": "2", "voo": "", "reg": "", "tipo": "", "cat": "", "lat": -15.7, "lon": -47.9, "alt": 1, "vel": 1, "rumo": 0, "chao": False, "idade": 1}]  # noqa: E731
+    def c():
+        raise OSError("fora")
+    d = aereo.aeronaves([("adsb.lol", a), ("adsb.fi", b), ("OpenSky", c)])
+    assert d["fonte"] == "adsb.lol + adsb.fi" and len(d["aeronaves"]) == 2
+    assert d["por_fonte"]["adsb.lol"] == 1 and d["por_fonte"]["OpenSky"] == "OSError"
+    aereo.limpar_cache()
+
+
+def test_opensky_anonimo_consultado_com_menos_frequencia(monkeypatch):
+    aereo.limpar_cache()
+    monkeypatch.delenv("OPENSKY_CLIENT_ID", raising=False)
+    assert aereo._intervalo("OpenSky") == 300 and aereo._intervalo("adsb.lol") == 10
+    chamadas = []
+    fonte = lambda: chamadas.append(1) or []  # noqa: E731
+    aereo._consultar("OpenSky", fonte, 1000.0)
+    aereo._consultar("OpenSky", fonte, 1060.0)       # 1 min depois: reaproveita
+    aereo._consultar("OpenSky", fonte, 1301.0)       # 5 min depois: consulta de novo
+    assert len(chamadas) == 2
+    aereo.limpar_cache()
+
+
 def test_rota_aeronaves(monkeypatch):
     aereo.limpar_cache()
     monkeypatch.setattr(aereo, "FONTES", [("teste", lambda: [])])

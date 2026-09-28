@@ -12,7 +12,7 @@ Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido 
 | Leitura e limpeza da planilha | **Python** | `dados.py` (lê o `equipamentos.csv` direto, sem conversão manual) |
 | Previsão do tempo (Chuva e Temperatura) | **Python** | `clima.py` (Open-Meteo, grade sobre o DF, cache de 1 h) |
 | Fotos aéreas do GDF (2024 e histórico) | **Python** | `gdf.py` (busca na IDE-DF, reprojeta para o mapa, cache) |
-| Tráfego aéreo (ADS-B) | **Python** | `aereo.py` (adsb.lol, reserva OpenSky; destaca helicópteros e a frota dos órgãos) |
+| Tráfego aéreo (ADS-B) | **Python** | `aereo.py` (soma adsb.lol + adsb.fi + OpenSky; destaca helicópteros e a frota dos órgãos) |
 | Focos de queimada | **Python** | `queimadas.py` (INPE, DF e entorno, 48 h) |
 | Trânsito em tempo real | **Python** | `transito.py` (TomTom; a chave fica só no servidor) |
 | Waze for Cities | **Python** | `waze.py` (Waze Data Feed; a URL secreta fica só no servidor) |
@@ -139,7 +139,7 @@ Ao entrar, o mapa abre em vista inclinada do DF com **todas as camadas desligada
 
 | Camada | Fonte | O que mostra |
 |---|---|---|
-| **Tráfego aéreo** | adsb.lol (ADS-B aberto), com reserva no OpenSky | Aeronaves num raio de ~110 km, em 3D na altitude real, com o rumo. Helicópteros e aeronaves dos órgãos ganham ícone próprio, haste até o chão e rastro. Atualiza a cada 10 s |
+| **Tráfego aéreo** | adsb.lol + [adsb.fi](https://adsb.fi) + OpenSky, somados (cada rede tem antenas diferentes) | Aeronaves num raio de ~110 km, em 3D na altitude real, com o rumo. Helicópteros e aeronaves dos órgãos ganham ícone próprio, haste até o chão e rastro. Atualiza a cada 10 s |
 | **Trânsito em tempo real** | TomTom Traffic Flow | Fluxo nas vias, de verde (livre) a vermelho-escuro (parado). Atualiza a cada 2 min |
 | **Waze · ocorrências** | Waze for Cities (Data Feed) | Acidentes, alagamentos, clima na via, perigos (inclui semáforo com defeito e buraco), interdições e obras, polícia e congestionamentos em linha, com liga/desliga por categoria. Atualiza a cada 2 min |
 | **Focos de queimada** | INPE, Programa Queimadas | Focos de calor por satélite no DF e entorno nas últimas 48 h, com cor por idade |

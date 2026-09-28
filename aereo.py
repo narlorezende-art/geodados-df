@@ -1,8 +1,12 @@
 """Tráfego aéreo sobre o DF (ADS-B), no espírito do God's Eye View.
 
-Fonte principal: adsb.lol (rede comunitária de ADS-B, aberta, sem chave).
-Reserva: OpenSky Network (anônimo, ou com OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET).
-O resultado fica 10 s em cache para respeitar os limites das fontes.
+Consulta VÁRIAS redes ao mesmo tempo e junta o resultado pelo código ICAO (hex) de
+cada aeronave — cada rede tem antenas diferentes, e juntas enxergam mais:
+  • adsb.lol  (comunitária, aberta, sem chave)
+  • adsb.fi   (comunitária, aberta, sem chave; uso não comercial, citar adsb.fi)
+  • OpenSky Network (anônimo tem cota diária pequena, então é consultado a cada 5 min;
+    com OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET, a cada 30 s)
+Para cada aeronave vale a posição mais recente entre as redes. Resultado em cache por 10 s.
 
 Aeronaves de órgãos (DETRAN-DF, PMDF, CBMDF…) são reconhecidas pela variável
 FROTA, no formato "PR-ABC:PMDF;PT-XYZ:CBMDF;E4812A:DETRAN" (matrícula ou código hex).
@@ -15,6 +19,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 CENTRO = (-15.79, -47.88)       # Brasília
 RAIO_NM = 60                    # ~110 km: DF e entorno
@@ -58,18 +63,17 @@ def _get_json(url: str, headers: dict | None = None, timeout: int = 12):
 
 # ---------------- fontes ----------------
 
-def _adsblol() -> list[dict]:
-    lat, lon = CENTRO
-    dados = _get_json(f"https://api.adsb.lol/v2/point/{lat}/{lon}/{RAIO_NM}")
+def _readsb(dados: dict) -> list[dict]:
+    """Converte o formato readsb (usado por adsb.lol e adsb.fi)."""
     saida = []
-    for a in dados.get("ac") or []:
+    for a in dados.get("ac") or dados.get("aircraft") or []:
         if a.get("lat") is None or a.get("lon") is None:
             continue
         alt = a.get("alt_geom", a.get("alt_baro"))
         no_chao = alt == "ground"
         alt_m = 0.0 if no_chao or not isinstance(alt, (int, float)) else alt * 0.3048
         saida.append({
-            "hex": (a.get("hex") or "").lower(),
+            "hex": (a.get("hex") or "").lower().lstrip("~"),
             "voo": (a.get("flight") or "").strip(),
             "reg": (a.get("r") or "").strip(),
             "tipo": (a.get("t") or "").strip().upper(),
@@ -81,6 +85,16 @@ def _adsblol() -> list[dict]:
             "idade": a.get("seen_pos", a.get("seen", 0)) or 0,
         })
     return saida
+
+
+def _adsblol() -> list[dict]:
+    lat, lon = CENTRO
+    return _readsb(_get_json(f"https://api.adsb.lol/v2/point/{lat}/{lon}/{RAIO_NM}"))
+
+
+def _adsbfi() -> list[dict]:
+    lat, lon = CENTRO
+    return _readsb(_get_json(f"https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{RAIO_NM}"))
 
 
 def _opensky_token() -> str | None:
@@ -125,7 +139,18 @@ def _opensky() -> list[dict]:
     return saida
 
 
-FONTES = [("adsb.lol", _adsblol), ("OpenSky Network", _opensky)]
+FONTES = [("adsb.lol", _adsblol), ("adsb.fi", _adsbfi), ("OpenSky", _opensky)]
+IDADE_MAX = 120          # s: posição mais velha que isso é descartada
+
+
+def _intervalo(nome: str) -> int:
+    """De quanto em quanto tempo cada rede pode ser consultada."""
+    if nome == "OpenSky":
+        return 30 if os.environ.get("OPENSKY_CLIENT_ID") else 300
+    return VALIDADE
+
+
+_por_fonte: dict = {}    # nome -> {"quando": t, "lista": [...], "pausa_ate": t, "erro": str}
 
 
 def _classificar(lista: list[dict], mapa_frota: dict[str, str]) -> list[dict]:
@@ -135,25 +160,70 @@ def _classificar(lista: list[dict], mapa_frota: dict[str, str]) -> list[dict]:
     return lista
 
 
+def juntar(listas: list[list[dict]]) -> list[dict]:
+    """Uma entrada por aeronave: posição mais recente; completa matrícula/tipo/voo com as outras redes."""
+    melhor: dict[str, dict] = {}
+    for lista in listas:
+        for a in lista:
+            if not a.get("hex") or a.get("idade", 0) > IDADE_MAX:
+                continue
+            atual = melhor.get(a["hex"])
+            if atual is None:
+                melhor[a["hex"]] = dict(a)
+                continue
+            novo, velho = (a, atual) if a.get("idade", 0) < atual.get("idade", 0) else (atual, a)
+            combinado = dict(novo)
+            for campo in ("reg", "tipo", "voo", "cat"):
+                if not combinado.get(campo) and velho.get(campo):
+                    combinado[campo] = velho[campo]
+            melhor[a["hex"]] = combinado
+    return list(melhor.values())
+
+
+def _consultar(nome, buscar, agora):
+    """Consulta uma rede respeitando o intervalo dela; devolve a lista (com idade atualizada) ou None."""
+    info = _por_fonte.setdefault(nome, {"quando": 0.0, "lista": None, "pausa_ate": 0.0, "erro": ""})
+    if agora < info["pausa_ate"]:
+        pass
+    elif agora - info["quando"] >= _intervalo(nome) or info["lista"] is None:
+        try:
+            info["lista"] = buscar()
+            info["quando"] = agora
+            info["erro"] = ""
+        except Exception as e:
+            info["erro"] = e.__class__.__name__
+            codigo = getattr(e, "code", None)
+            info["pausa_ate"] = agora + (600 if codigo in (401, 403, 429) else 30)   # cota estourada: descansa
+    if info["lista"] is None:
+        return None
+    passou = agora - info["quando"]
+    return [{**a, "idade": (a.get("idade") or 0) + passou} for a in info["lista"]]
+
+
 def aeronaves(fontes=None) -> dict:
-    """Aeronaves no DF e entorno, com cache de 10 s e troca automática de fonte."""
+    """Aeronaves no DF e entorno, somando as redes disponíveis. Cache de 10 s."""
     with _trava:
         agora = time.time()
         if _cache["dados"] and agora - _cache["quando"] < VALIDADE:
             return _cache["dados"]
-        erros = []
-        for nome, buscar in (fontes or FONTES):
-            try:
-                lista = _classificar(buscar(), frota())
-                dados = {"fonte": nome, "hora": int(agora), "aeronaves": lista}
-                _cache.update(quando=agora, dados=dados)
-                return dados
-            except Exception as e:  # tenta a próxima fonte
-                erros.append(f"{nome}: {e.__class__.__name__}")
+        fontes = fontes or FONTES
+        with ThreadPoolExecutor(max_workers=len(fontes)) as ex:
+            resultados = list(ex.map(lambda f: (f[0], _consultar(f[0], f[1], agora)), fontes))
+        ok = [(n, l) for n, l in resultados if l is not None]
+        if ok:
+            lista = _classificar(juntar([l for _, l in ok]), frota())
+            dados = {
+                "fonte": " + ".join(n for n, _ in ok), "hora": int(agora), "aeronaves": lista,
+                "por_fonte": {n: (len(l) if l is not None else _por_fonte.get(n, {}).get("erro") or "sem dados") for n, l in resultados},
+            }
+            _cache.update(quando=agora, dados=dados)
+            return dados
         if _cache["dados"]:
             return {**_cache["dados"], "desatualizado": True}
-        raise RuntimeError("Tráfego aéreo indisponível no momento (" + "; ".join(erros) + ").")
+        erros = "; ".join(f"{n}: {_por_fonte.get(n, {}).get('erro') or 'sem resposta'}" for n, _ in resultados)
+        raise RuntimeError("Tráfego aéreo indisponível no momento (" + erros + ").")
 
 
 def limpar_cache() -> None:
     _cache.update(quando=0.0, dados=None)
+    _por_fonte.clear()

@@ -48,7 +48,7 @@ EM_PRODUCAO = bool(os.environ.get("RENDER")) or os.environ.get("HTTPS_ONLY") == 
 CABECALHOS_SEGURANCA = {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "same-origin",
+    "Referrer-Policy": "strict-origin-when-cross-origin",  # o OpenStreetMap exige saber o domínio do site
     "X-Robots-Tag": "noindex, nofollow",
 }
 if EM_PRODUCAO:

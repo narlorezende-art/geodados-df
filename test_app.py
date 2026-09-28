@@ -132,6 +132,8 @@ def test_cabecalhos_de_seguranca():
     c = cliente()
     r = c.get("/login")
     assert r.headers["x-frame-options"] == "DENY"
+    # só o domínio vai para outros sites (o OpenStreetMap bloqueia pedidos sem essa informação)
+    assert r.headers["referrer-policy"] == "strict-origin-when-cross-origin"
     assert "noindex" in r.headers["x-robots-tag"]
 
 

@@ -111,6 +111,23 @@ def test_codigo_e_planilha_nunca_sao_servidos():
     assert c.get("/cesium/Cesium.js").status_code in (200, 404)
 
 
+def test_painel_nunca_fica_preso_em_versao_antiga():
+    c = cliente()
+    entrar(c)
+    for caminho in ["/", "/app.js", "/app.css", "/app.js?v=3"]:
+        r = c.get(caminho)
+        assert r.status_code == 200 and "no-cache" in r.headers["cache-control"], caminho
+
+
+def test_logo_so_depois_do_login():
+    c = cliente()
+    assert c.get("/logo.png").status_code == 401
+    assert "logo" not in c.get("/login").text.lower()
+    entrar(c)
+    r = c.get("/logo.png")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/png"
+
+
 def test_cabecalhos_de_seguranca():
     c = cliente()
     r = c.get("/login")

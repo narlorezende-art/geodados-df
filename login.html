@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>GeoDados DF · Entrar</title>
+<title>CCOTRAN DF · Acesso</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,10 +41,9 @@
 <body>
 <canvas id="bg" aria-hidden="true"></canvas>
 <div class="wrap">
-  <div class="brand"><span class="mark" aria-hidden="true"></span>GEODADOS<span class="sl">//</span>DF</div>
+  <div class="brand"><span class="mark" aria-hidden="true"></span>CCOTRAN<span class="sl">//</span>DF</div>
   <form method="post" action="/login" autocomplete="on">
     <h1>Acesso restrito</h1>
-    <p class="sub">Medidores de velocidade e previsão do tempo no Distrito Federal. Entre com o usuário e a senha que você recebeu.</p>
     <div class="err" id="err" hidden>Usuário ou senha incorretos. Confira e tente de novo.</div>
     <label for="usuario">Usuário
       <input id="usuario" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
@@ -54,13 +53,7 @@
     </label>
     <input type="hidden" name="next" id="next" value="/">
     <button type="submit">Entrar</button>
-    <div class="legend">
-      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><rect x="5.5" y="5.5" width="29" height="29" rx="6" fill="#C0801C" stroke="#fff" stroke-width="2.5"/><g transform="translate(8.6 8.6) scale(.95)"><rect x="4" y="8" width="13" height="9" rx="1.6" fill="#fff"/><path d="M17 11l4-2v7l-4-2z" fill="#fff"/><circle cx="9.5" cy="12.5" r="2.4" fill="#C0801C"/></g></svg>Controlador</span>
-      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="#4A90E0" stroke="#fff" stroke-width="2.5"/><circle cx="20" cy="20" r="8.2" fill="#fff" stroke="#D2231E" stroke-width="2.5"/><text x="20" y="23.3" font-family="Arial" font-weight="700" font-size="9" fill="#111" text-anchor="middle">60</text></svg>Redutor</span>
-      <span><svg viewBox="0 0 40 40" width="20" height="20" aria-hidden="true"><rect x="8.5" y="8.5" width="23" height="23" rx="4" transform="rotate(45 20 20)" fill="#D15A7F" stroke="#fff" stroke-width="2.5"/><g transform="translate(10.6 10.6) scale(.78)"><rect x="8" y="3.5" width="8" height="17" rx="2.4" fill="#fff"/><circle cx="12" cy="7.3" r="1.9" fill="#D2231E"/><circle cx="12" cy="12" r="1.9" fill="#E8A300"/><circle cx="12" cy="16.7" r="1.9" fill="#1E9E4A"/></g></svg>Não metrológico</span>
-    </div>
   </form>
-  <div class="foot"><span>15°47′S · 47°52′W · WGS 84</span><span>Sessão de 12 h</span></div>
 </div>
 <script>
   const q = new URLSearchParams(location.search);
@@ -83,10 +76,10 @@
       x.strokeStyle = "rgba(70,213,229,.12)";
       for (let k = 1; k < 7; k++) { x.beginPath(); x.arc(cx, cy, k * 120, 0, Math.PI * 2); x.stroke(); }
       let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-      const cols = ["#C0801C", "#4A90E0", "#D15A7F"];
+      const cols = ["#46D5E5"];
       for (let k = 0; k < 110; k++) {
         const a = rnd() * Math.PI * 2, d = 60 + rnd() * Math.max(w, h) * 0.55;
-        x.fillStyle = cols[k % 3]; x.globalAlpha = .25 + rnd() * .45;
+        x.fillStyle = cols[0]; x.globalAlpha = .25 + rnd() * .45;
         x.beginPath(); x.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, 2.2, 0, 7); x.fill();
       }
       x.globalAlpha = 1;

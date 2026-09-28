@@ -1,6 +1,6 @@
-# GeoDados DF
+# CCOTRAN DF
 
-**Camadas do painel:** Medidores de Velocidade (Controlador, Redutor, Não metrológico) · Previsão do tempo (Chuva, Temperatura, com barra de 48 h) · Mapa base (Satélite, Híbrido, Ruas, Escuro — Esri, sem chave). O painel é rebatível (botão ‹) e tem transparência ajustável: fica translúcido em repouso e sólido com o mouse em cima.
+**Camadas do painel:** Medidores de Velocidade (Controlador, Redutor, Não metrológico) · Previsão do tempo (Chuva, Temperatura, com barra de 48 h) · Mapa base e Vista ficam na barra compacta do canto superior direito. O painel é rebatível (botão ‹) e tem transparência ajustável, que vale para caixas e textos; com o mouse em cima ele fica sólido.
 
 Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido por login e senha.
 

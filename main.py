@@ -33,6 +33,7 @@ PAINEL = {  # únicos arquivos da pasta que o navegador pode receber
     "index.html": "text/html",
     "app.js": "text/javascript",
     "app.css": "text/css",
+    "logo.png": "image/png",  # logo institucional: só aparece depois do login
 }
 
 COOKIE = "gd_session"
@@ -113,8 +114,12 @@ async def exigir_login(request: Request, call_next):
             return _com_cabecalhos(resposta)
         request.state.usuario = usuario
     resposta = await call_next(request)
-    if caminho.startswith(("/cesium/", "/app.", "/favicon")):
-        resposta.headers.setdefault("Cache-Control", "private, max-age=3600")
+    if caminho.startswith(("/cesium/", "/favicon", "/logo.png")):
+        # biblioteca 3D e ícone quase nunca mudam: podem ficar guardados
+        resposta.headers["Cache-Control"] = "private, max-age=86400"
+    elif caminho in ("/", "/index.html", "/app.js", "/app.css"):
+        # painel: o navegador sempre confere se há versão nova (evita misturar versões)
+        resposta.headers["Cache-Control"] = "private, no-cache"
     else:
         resposta.headers["Cache-Control"] = "private, no-store"
     return _com_cabecalhos(resposta)

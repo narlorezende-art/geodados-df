@@ -47,7 +47,7 @@ async function boot() {
     if (me && me.user) $("whoami").textContent = me.user;
   } catch (e) {
     if (e.status === 401) { location.href = "/login"; return; }
-    $("loading").textContent = "Não foi possível carregar os dados. Recarregue a página.";
+    $("loadingText").textContent = "Não foi possível carregar os dados. Recarregue a página.";
     return;
   }
   state.items = data;
@@ -278,7 +278,7 @@ async function toggle3D() {
       console.error(e);
       toast("Não foi possível carregar os prédios 3D. Confira a chave configurada no Render.");
     }
-    btn.disabled = false; btn.textContent = "Prédios 3D";
+    btn.disabled = false; btn.textContent = "3D";
   } else {
     if (tileset) { scene.primitives.remove(tileset); tileset = null; }
     scene.globe.show = true;
@@ -380,6 +380,31 @@ function setHour(i) {
   $("wxRel").textContent = i === 0 ? "agora" : `+${i} h`;
   for (const k of ["chuva", "temp"]) if (state.wx.on[k]) drawWx(k);
   if (state.selected) fillCardWx(state.byId.get(state.selected));
+  rainSummary();
+}
+
+// Diz em texto o que a camada de chuva está mostrando (inclusive quando não há chuva nenhuma)
+function rainSummary() {
+  const d = state.wx.data, el = $("rainStatus");
+  if (!d) { el.textContent = ""; return; }
+  const h = state.wx.hour, mm = (v) => v.toFixed(1).replace(".", ",");
+  const maxAt = (k) => Math.max(0, ...d.chuva[k].filter((v) => v != null));
+  const agora = maxAt(h);
+  if (agora >= 0.1) {
+    const area = Math.round(d.chuva[h].filter((v) => v >= 0.1).length / d.chuva[h].length * 100);
+    el.innerHTML = `<span>Chuva prevista em <b>${area}%</b> do DF nesta hora · máx. <b>${mm(agora)} mm/h</b></span>`;
+    return;
+  }
+  let prox = -1;
+  for (let k = h + 1; k < d.horas.length; k++) if (maxAt(k) >= 0.1) { prox = k; break; }
+  if (prox >= 0) {
+    const [dia, hm] = d.horas[prox].split("T");
+    const rot = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(new Date(dia + "T12:00:00")).replace(".", "");
+    el.innerHTML = `<span>Sem chuva nesta hora. Próxima chuva prevista: <b>${rot} · ${hm.slice(0, 2)}h</b></span><button type="button" data-go="${prox}">Ir</button>`;
+    return;
+  }
+  const pmax = Math.max(0, ...d.prob.flat().filter((v) => v != null));
+  el.innerHTML = `<span>Sem chuva prevista no DF nas próximas ${d.horas.length} h. Chance máxima de chuva: <b>${pmax}%</b>.</span>`;
 }
 
 function drawWx(kind) {
@@ -411,6 +436,7 @@ function removeWx(kind) {
 // Interpola a grade (suave, com textura de nuvem) e pinta numa imagem transparente
 function renderField(kind, d, h) {
   const vals = (kind === "chuva" ? d.chuva : d.temp)[h];
+  const probs = d.prob[h];
   const NX = d.nx, NY = d.ny, W = 512, H = Math.round(512 * NY / NX);
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const x = c.getContext("2d"), img = x.createImageData(W, H), px = img.data;
@@ -427,7 +453,19 @@ function renderField(kind, d, h) {
       let alpha;
       if (kind === "chuva") {
         v *= 0.75 + 0.5 * noise[y * W + xx];           // textura de nuvem
-        if (v < 0.04) continue;
+        if (v < 0.04) {
+          // sem volume previsto: mostra, em listras suaves, onde a chance de chuva é de 30% ou mais
+          const pa = probs[j0 * NX + i0], pb = probs[j0 * NX + i0 + 1], pc = probs[(j0 + 1) * NX + i0], pd = probs[(j0 + 1) * NX + i0 + 1];
+          if (pa == null || pb == null || pc == null || pd == null) continue;
+          const p = (pa * (1 - tx) + pb * tx) * (1 - ty) + (pc * (1 - tx) + pd * tx) * ty;
+          if (p < 30) continue;
+          const stripe = ((xx + y) % 10) < 5 ? 1 : 0.4;
+          const edge = Math.min(xx, W - 1 - xx, y, H - 1 - y) / (W * 0.08);
+          const o = (y * W + xx) * 4;
+          px[o] = 150; px[o + 1] = 190; px[o + 2] = 230;
+          px[o + 3] = Math.round((0.14 + 0.3 * Math.min(1, (p - 30) / 60)) * stripe * Math.min(1, edge) * 255);
+          continue;
+        }
         const fade = Math.min(1, (v - 0.04) / 0.3);          // borda suave da mancha de chuva
         alpha = Math.min(0.85, 0.35 + Math.log10(1 + v) * 0.45) * fade * fade;
       } else alpha = 0.72;
@@ -565,10 +603,11 @@ function buildUI() {
   $("panelClose").onclick = () => setCollapsed(true);
   $("panelOpen").onclick = () => setCollapsed(false);
   setCollapsed(store.get("collapsed", false));
-  const alpha = store.get("alpha", 55);
-  $("panelAlpha").value = alpha;
-  panel.style.setProperty("--pa", alpha / 100);
-  $("panelAlpha").addEventListener("input", (e) => { panel.style.setProperty("--pa", e.target.value / 100); store.set("alpha", Number(e.target.value)); });
+  // transparência vale para o painel inteiro (caixas e textos); com o mouse em cima ele fica sólido
+  const transp = store.get("transp", 35);
+  $("panelAlpha").value = transp;
+  panel.style.setProperty("--po", 1 - transp / 100);
+  $("panelAlpha").addEventListener("input", (e) => { panel.style.setProperty("--po", 1 - e.target.value / 100); store.set("transp", Number(e.target.value)); });
 
   // árvore: Medidores de Velocidade → 3 tipos
   $("subMedidores").innerHTML = Object.entries(TYPES).map(([k, t]) => `
@@ -604,6 +643,7 @@ function buildUI() {
     if (store.get("wx:" + kind, false)) { $(sw).checked = true; state.wx.on[kind] = true; document.querySelector(`.wx[data-wx="${kind}"]`).classList.add("on"); }
   }
   $("wxHour").addEventListener("input", (e) => setHour(Number(e.target.value)));
+  $("rainStatus").addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) setHour(Number(b.dataset.go)); });
   $("wxPlay").onclick = togglePlay;
 
   // sentidos

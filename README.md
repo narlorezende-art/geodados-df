@@ -107,9 +107,8 @@ A barra no canto superior direito tem estas opções:
 
 | Opção | Fonte | Observação |
 |---|---|---|
-| Satélite | Esri World Imagery | Mundo todo |
-| **GDF 2024** | Foto aérea oficial SEDUH/GDF (IDE-DF) | **8 cm por pixel**, só dentro do DF; fora dele aparece o satélite Esri |
-| **Histórico** | Acervo SEDUH/GDF | Seletor de ano: 1964, 1975, 1980, 1986, 1991, 1997, 2007, 2009, 2013, 2015, 2016, 2017, 2018, 2021, 2022, 2023, 2024 |
+| Satélite ▾ | Esri World Imagery (padrão) ou **Esri Clarity** | Mundo todo. Ao clicar, aparece a barra "Fonte" para escolher; o Clarity costuma ser mais nítido em muitas áreas |
+| **Histórico** | Acervo SEDUH/GDF (IDE-DF) | Seletor de ano: 1964, 1975, 1980, 1986, 1991, 1997, 2007, 2009, 2013, 2015, 2016, 2017, 2018, 2021, 2022, 2023, 2024. A foto de **2024 tem 8 cm por pixel**. Só dentro do DF; fora dele aparece o satélite Esri |
 | Híbrido, Ruas, Escuro | Esri | Sem chave |
 | OSM | OpenStreetMap | Uso moderado, com atribuição |
 

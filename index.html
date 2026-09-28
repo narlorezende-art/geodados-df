@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/cesium/Widgets/widgets.css">
-<link rel="stylesheet" href="/app.css?v=8">
+<link rel="stylesheet" href="/app.css?v=10">
 <script>window.CESIUM_BASE_URL = "/cesium/";</script>
 <script src="/cesium/Cesium.js" defer></script>
-<script src="/app.js?v=8" defer></script>
+<script src="/app.js?v=10" defer></script>
 </head>
 <body>
 <div id="map" aria-label="Globo 3D do Distrito Federal"></div>
@@ -135,13 +135,17 @@
 <div class="maptools" role="toolbar" aria-label="Mapa base e visualização">
   <div class="mt-group" id="baseSeg" role="radiogroup" aria-label="Mapa base">
     <span class="mt-label">Base</span>
-    <button type="button" data-base="sat" aria-pressed="true" title="Satélite Esri (mundo todo)">Satélite</button>
-    <button type="button" data-base="gdf" aria-pressed="false" title="Foto aérea oficial do GDF, voo 2024, 8 cm por pixel">GDF 2024</button>
-    <button type="button" data-base="hist" aria-pressed="false" title="Fotos e imagens históricas do GDF, de 1964 a 2024">Histórico</button>
+    <button type="button" data-base="sat" aria-pressed="true" title="Imagem de satélite (escolha a fonte logo abaixo)">Satélite <span class="caret" aria-hidden="true">▾</span></button>
+    <button type="button" data-base="hist" aria-pressed="false" title="Fotos aéreas e imagens do GDF, de 1964 a 2024 (inclui a foto de 2024 com 8 cm por pixel)">Histórico</button>
     <button type="button" data-base="hib" aria-pressed="false" title="Satélite com nomes de ruas">Híbrido</button>
     <button type="button" data-base="ruas" aria-pressed="false" title="Mapa de ruas Esri">Ruas</button>
     <button type="button" data-base="osm" aria-pressed="false" title="OpenStreetMap">OSM</button>
     <button type="button" data-base="escuro" aria-pressed="false" title="Mapa escuro Esri">Escuro</button>
+  </div>
+  <div class="mt-group mt-sat" id="satBar" hidden role="radiogroup" aria-label="Fonte do satélite">
+    <span class="mt-label">Fonte</span>
+    <button type="button" data-sat="sat" aria-pressed="true" title="Esri World Imagery (padrão)">Esri padrão</button>
+    <button type="button" data-sat="clarity" aria-pressed="false" title="Esri World Imagery Clarity: imagens mais nítidas em muitas áreas">Esri Clarity</button>
   </div>
   <div class="mt-group mt-hist" id="histBar" hidden aria-label="Ano da imagem histórica">
     <span class="mt-label">Ano</span>

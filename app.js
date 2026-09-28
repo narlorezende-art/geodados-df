@@ -227,14 +227,14 @@ function updateAltitude() {
 /* ================= mapas base ================= */
 const DF_RECT = [-48.35, -16.10, -47.25, -15.45];   // mesmo recorte do servidor (gdf.py)
 const BASE_NOME = {
-  sat: "Satélite Esri", hib: "Satélite Esri + ruas", ruas: "Ruas Esri", escuro: "Mapa escuro Esri",
+  sat: "Satélite Esri", clarity: "Satélite Esri Clarity", hib: "Satélite Esri + ruas", ruas: "Ruas Esri", escuro: "Mapa escuro Esri",
   osm: "© colaboradores do OpenStreetMap", gdf: "Foto aérea 2024 · SEDUH/GDF", offline: "Mapa offline",
 };
 let gdfErrors = 0, gdfWarned = false;
 
-function esriProvider(svc, max = 19) {
+function esriProvider(svc, max = 19, host = "server.arcgisonline.com/ArcGIS") {
   return new Cesium.UrlTemplateImageryProvider({
-    url: `https://server.arcgisonline.com/ArcGIS/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`,
+    url: `https://${host}/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`,
     maximumLevel: max, credit: "Esri, Maxar, Earthstar Geographics, colaboradores do OpenStreetMap",
   });
 }
@@ -259,19 +259,24 @@ function gdfProvider(servico) {
 
 function setBase(key) {
   const C = Cesium, L = viewer.imageryLayers;
-  if ((key === "gdf" || key === "hist") && !state.gdfList.length) key = "sat";
+  if (key === "gdf") {                       // opção antiga "GDF 2024" agora vive dentro do Histórico
+    key = "hist";
+    state.histIndex = Math.max(0, state.gdfList.length - 1);
+  }
+  if (key === "hist" && !state.gdfList.length) key = "sat";
   baseLayers.forEach((l) => L.remove(l, true)); baseLayers = [];
   tileErrors = 0; gdfErrors = 0; gdfWarned = false;
   const add = (prov, watch = true) => { if (watch) watchErrors(prov); const l = L.addImageryProvider(prov, baseLayers.length); baseLayers.push(l); return l; };
 
   if (key === "sat") add(esriProvider("World_Imagery"));
+  if (key === "clarity") add(esriProvider("World_Imagery", 20, "clarity.maptiles.arcgis.com/arcgis"));
   if (key === "hib") { add(esriProvider("World_Imagery")); add(esriProvider("Reference/World_Transportation", 18)); add(esriProvider("Reference/World_Boundaries_and_Places", 18)); }
   if (key === "ruas") add(esriProvider("World_Street_Map"));
   if (key === "escuro") { add(esriProvider("Canvas/World_Dark_Gray_Base", 16)); add(esriProvider("Canvas/World_Dark_Gray_Reference", 16)); }
   if (key === "osm") add(new C.UrlTemplateImageryProvider({ url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19, credit: "© colaboradores do OpenStreetMap" }));
-  if (key === "gdf" || key === "hist") {
+  if (key === "hist") {
     add(esriProvider("World_Imagery"), false);   // fundo fora do DF (opcional: se falhar, não troca o mapa)
-    const svc = key === "gdf" ? "FOTO_AEREA_2024" : state.gdfList[state.histIndex].id;
+    const svc = state.gdfList[state.histIndex].id;
     state.gdfLayer = add(gdfProvider(svc), false);
   } else state.gdfLayer = null;
   if (key === "offline") {
@@ -280,7 +285,11 @@ function setBase(key) {
   }
   state.base = key;
   if (key !== "offline") store.set("base", key);
-  document.querySelectorAll("#baseSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.base === key)));
+  // "Satélite ▾" fica marcado para qualquer fonte de satélite; a fonte aparece na barra logo abaixo
+  const isSat = key === "sat" || key === "clarity";
+  document.querySelectorAll("#baseSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.base === key || (isSat && b.dataset.base === "sat"))));
+  $("satBar").hidden = !isSat;
+  document.querySelectorAll("#satBar [data-sat]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.sat === key)));
   $("histBar").hidden = key !== "hist";
   if (key === "hist") showHistLabel();
   $("sbBase").textContent = key === "hist" ? histName() : BASE_NOME[key];
@@ -321,6 +330,12 @@ function setHistYear(i) {
 function watchErrors(prov) {
   prov.errorEvent.addEventListener(() => {
     tileErrors++;
+    if (tileErrors === 12 && state.base === "clarity") {     // Clarity falhou: volta ao satélite padrão
+      store.set("satSrc", "sat");
+      setBase("sat");
+      toast("O satélite Esri Clarity não respondeu. Voltando ao satélite padrão.");
+      return;
+    }
     if (tileErrors === 12 && !fallbackUsed) {
       fallbackUsed = true;
       setBase("offline");
@@ -866,11 +881,17 @@ function buildUI() {
   // mapa base e visualização
   $("baseSeg").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-base]"); if (!b || !viewer || b.disabled) return;
-    fallbackUsed = false; setBase(b.dataset.base);
+    fallbackUsed = false;
+    setBase(b.dataset.base === "sat" ? store.get("satSrc", "sat") : b.dataset.base);
+  });
+  $("satBar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sat]"); if (!b || !viewer) return;
+    store.set("satSrc", b.dataset.sat);
+    fallbackUsed = false; setBase(b.dataset.sat);
   });
   // fotos do GDF: lista de anos vem do servidor
   state.gdfList = state.config.gdf || [];
-  if (!state.gdfList.length) document.querySelectorAll('#baseSeg [data-base="gdf"], #baseSeg [data-base="hist"]').forEach((b) => (b.hidden = true));
+  if (!state.gdfList.length) document.querySelectorAll('#baseSeg [data-base="hist"]').forEach((b) => (b.hidden = true));
   else {
     const idx1991 = state.gdfList.findIndex((g) => g.ano === "1991");
     state.histIndex = Math.min(state.gdfList.length - 1, store.get("histIndex", idx1991 >= 0 ? idx1991 : 0));

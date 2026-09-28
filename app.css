@@ -278,3 +278,7 @@ h3{margin:0;font:600 11.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-
 /* ---------- botão de órbita na ficha ---------- */
 .orbit-btn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:4px;font-size:12px;font-weight:600;padding:4px 10px;margin-right:auto}
 .orbit-btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+/* ---------- fonte do satélite ---------- */
+.caret{font-size:9px;opacity:.7;margin-left:2px}
+.mt-sat{padding:3px}

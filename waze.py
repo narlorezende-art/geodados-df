@@ -78,7 +78,7 @@ def _baixar() -> dict:
     q.setdefault("format", "1")
     q["types"] = "alerts,traffic"
     url = urllib.parse.urlunsplit(partes._replace(query=urllib.parse.urlencode(q)))
-    req = urllib.request.Request(url, headers={"User-Agent": "CCOTRAN-DF/1.0 (painel privado)", "Accept": "application/json"})
+    req = urllib.request.Request(url, headers={"User-Agent": "CCOMaps/1.0 (painel privado)", "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=25) as resp:
         return json.load(resp)
 

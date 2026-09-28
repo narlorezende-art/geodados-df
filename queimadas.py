@@ -23,7 +23,7 @@ _cache: dict = {"quando": 0.0, "dados": None}
 
 
 def _baixar(data: str) -> str:
-    req = urllib.request.Request(URL.format(data=data), headers={"User-Agent": "CCOTRAN-DF/1.0 (painel privado)"})
+    req = urllib.request.Request(URL.format(data=data), headers={"User-Agent": "CCOMaps/1.0 (painel privado)"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         return resp.read().decode("utf-8", errors="replace")
 

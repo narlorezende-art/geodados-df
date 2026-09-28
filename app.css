@@ -315,3 +315,4 @@ h3{margin:0;font:600 11.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-
 
 /* ---------- Waze ---------- */
 .jam-key{display:inline-block;width:22px;height:5px;border-radius:3px;background:linear-gradient(90deg,#F2C12E,#F2842E,#D63031,#7A1010)}
+.brand .hl{color:var(--accent)}

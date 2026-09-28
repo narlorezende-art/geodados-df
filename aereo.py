@@ -25,7 +25,7 @@ CENTRO = (-15.79, -47.88)       # Brasília
 RAIO_NM = 60                    # ~110 km: DF e entorno
 BBOX = (-16.35, -48.55, -15.20, -47.20)   # lat_min, lon_min, lat_max, lon_max (OpenSky)
 VALIDADE = 10                   # segundos
-UA = {"User-Agent": "CCOTRAN-DF/1.0 (painel privado)"}
+UA = {"User-Agent": "CCOMaps/1.0 (painel privado)"}
 
 # Designadores ICAO de helicópteros comuns no Brasil (reforça a categoria A7 do ADS-B)
 HELICOPTEROS = {

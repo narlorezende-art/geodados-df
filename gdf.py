@@ -94,7 +94,7 @@ def _baixar(servico: str, z: int, x: int, y: int) -> tuple[bytes, str]:
     }
     req = urllib.request.Request(
         URL.format(servico=servico) + "?" + urllib.parse.urlencode(params),
-        headers={"User-Agent": "CCOTRAN-DF/1.0 (painel privado)"},
+        headers={"User-Agent": "CCOMaps/1.0 (painel privado)"},
     )
     with urllib.request.urlopen(req, timeout=20) as resp:
         tipo = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]

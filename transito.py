@@ -28,7 +28,7 @@ def ativo() -> bool:
 
 def _baixar(z: int, x: int, y: int) -> bytes:
     url = URL.format(z=z, x=x, y=y, key=os.environ["TOMTOM_KEY"].strip())
-    req = urllib.request.Request(url, headers={"User-Agent": "CCOTRAN-DF/1.0 (painel privado)"})
+    req = urllib.request.Request(url, headers={"User-Agent": "CCOMaps/1.0 (painel privado)"})
     with urllib.request.urlopen(req, timeout=15) as resp:
         if not resp.headers.get("Content-Type", "").startswith("image/"):
             raise RuntimeError("A TomTom não devolveu imagem.")

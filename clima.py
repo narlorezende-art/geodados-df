@@ -47,7 +47,7 @@ def _baixar() -> list[dict]:
     }
     req = urllib.request.Request(
         URL + "?" + urllib.parse.urlencode(params),
-        headers={"User-Agent": "GeoDados-DF/1.0 (painel privado)"},
+        headers={"User-Agent": "CCOMaps/1.0 (painel privado)"},
     )
     with urllib.request.urlopen(req, timeout=25) as resp:
         corpo = json.load(resp)

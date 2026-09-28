@@ -1,4 +1,6 @@
-# CCOTRAN DF
+# CCOMaps
+
+Módulo de **mapas, camadas e informações geográficas** da família CCO (CCOHub · CCOMaps · CCOFlow · CCOLive). Por enquanto, todas as camadas, inclusive trânsito, Waze e aeronaves, ficam aqui. A separação em CCOFlow e CCOLive está registrada para o futuro.
 
 **Camadas do painel:** Medidores de Velocidade (Controlador, Redutor, Não metrológico) · Previsão do tempo (Chuva, Temperatura, com barra de 48 h) · Mapa base e Vista ficam na barra compacta do canto superior direito. O painel é rebatível (botão ‹) e tem transparência ajustável, que vale para caixas e textos; com o mouse em cima ele fica sólido.
 

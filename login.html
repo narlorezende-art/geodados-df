@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>CCOTRAN DF · Acesso</title>
+<title>CCOMaps · Acesso</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,6 +20,7 @@
   .wrap{position:relative;width:100%;max-width:420px;display:grid;gap:22px}
   .brand{font:700 15px/1 "Chakra Petch",sans-serif;letter-spacing:.16em;display:flex;align-items:center;gap:10px}
   .brand .sl{color:var(--accent);margin:0 .2em}
+  .brand .hl{color:var(--accent)}
   .mark{width:14px;height:14px;border:2px solid var(--accent);border-radius:50%;box-shadow:0 0 12px rgba(70,213,229,.6);position:relative}
   .mark::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
   form{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:26px 24px 22px;display:grid;gap:16px;
@@ -46,7 +47,7 @@
 <body>
 <canvas id="bg" aria-hidden="true"></canvas>
 <div class="wrap">
-  <div class="brand"><span class="mark" aria-hidden="true"></span>CCOTRAN<span class="sl">//</span>DF</div>
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span>CCO<span class="hl">Maps</span></span></div>
   <form method="post" action="/login" autocomplete="on">
     <div class="err" id="err" hidden>Usuário ou senha incorretos. Confira e tente de novo.</div>
     <label for="usuario">Usuário

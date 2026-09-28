@@ -11,6 +11,7 @@ Mapa 3D privado dos equipamentos de fiscalização eletrônica do DF, protegido 
 | Servidor, login e sessões | **Python** (FastAPI) | `main.py`, `seguranca.py` |
 | Leitura e limpeza da planilha | **Python** | `dados.py` (lê o `equipamentos.csv` direto, sem conversão manual) |
 | Previsão do tempo (Chuva e Temperatura) | **Python** | `clima.py` (Open-Meteo, grade sobre o DF, cache de 1 h) |
+| Fotos aéreas do GDF (2024 e histórico) | **Python** | `gdf.py` (busca na IDE-DF, reprojeta para o mapa, cache) |
 | Scripts de apoio | **Python** | `criar_usuario.py`, `baixar_cesium.py` |
 | Testes | **Python** (pytest) | `test_app.py` |
 | Mapa 3D no navegador | JavaScript (CesiumJS) | `index.html`, `app.js`, `app.css` |
@@ -99,3 +100,32 @@ O arquivo original não é alterado. O CSV pode usar `,` ou `;` como separador.
 - **Barra de tempo:** arraste para ver as próximas horas, ou use ▶ para animar.
 - **Consulta no mapa:** ao passar o mouse, a barra inferior mostra a temperatura e a chuva naquele ponto. A ficha de cada medidor também mostra a previsão no local.
 - **Se a fonte falhar:** o painel mostra a última previsão obtida e avisa que ela está desatualizada.
+
+## Mapas base
+
+A barra no canto superior direito tem estas opções:
+
+| Opção | Fonte | Observação |
+|---|---|---|
+| Satélite | Esri World Imagery | Mundo todo |
+| **GDF 2024** | Foto aérea oficial SEDUH/GDF (IDE-DF) | **8 cm por pixel**, só dentro do DF; fora dele aparece o satélite Esri |
+| **Histórico** | Acervo SEDUH/GDF | Seletor de ano: 1964, 1975, 1980, 1986, 1991, 1997, 2007, 2009, 2013, 2015, 2016, 2017, 2018, 2021, 2022, 2023, 2024 |
+| Híbrido, Ruas, Escuro | Esri | Sem chave |
+| OSM | OpenStreetMap | Uso moderado, com atribuição |
+
+- **Como as fotos do GDF chegam ao mapa:** elas passam pelo servidor Python na rota `/gdf/...`, que só responde a quem está logado.
+- **Por que passar pelo servidor:** a IDE-DF usa a projeção SIRGAS 2000 / UTM 23S, e o servidor pede a imagem já convertida para o formato do mapa.
+- **Cache:** o servidor guarda até 60 MB de blocos em memória, e o navegador guarda cada bloco por 7 dias.
+- **Se o GDF ficar lento ou fora do ar:** aparece um aviso, e o satélite Esri continua como fundo.
+
+O botão **3D** só aparece quando há `GOOGLE_MAPS_KEY` ou `CESIUM_ION_TOKEN` configurado no Render.
+
+## Seleção de um medidor
+
+Ao clicar num medidor, no mapa ou na lista, acontecem três coisas:
+
+- **A coordenada exata fica à vista:** o ícone sobe cerca de 30 m, e uma haste luminosa desce até um alvo no chão que marca o ponto. Assim a via fica livre para ver.
+- **A câmera faz uma órbita lenta** em volta do ponto, com uma volta a cada ~90 s.
+- **Como parar e retomar a órbita:** ela para assim que você clica, arrasta ou usa a roda do mouse no mapa. O botão **Pausar órbita / Girar em volta**, na ficha, pausa e retoma. O botão **Inclinada / De cima** muda o ângulo sem interromper a órbita.
+
+Quem ativou "reduzir movimento" no sistema operacional não vê a órbita automática. O botão continua funcionando.

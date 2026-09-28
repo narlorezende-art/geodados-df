@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 import clima
+import gdf
 import dados
 import seguranca
 
@@ -114,7 +115,10 @@ async def exigir_login(request: Request, call_next):
             return _com_cabecalhos(resposta)
         request.state.usuario = usuario
     resposta = await call_next(request)
-    if caminho.startswith(("/cesium/", "/favicon", "/logo.png")):
+    if caminho.startswith("/gdf/"):
+        # fotos aéreas não mudam: o navegador pode guardar por 7 dias
+        resposta.headers["Cache-Control"] = "private, max-age=604800"
+    elif caminho.startswith(("/cesium/", "/favicon", "/logo.png")):
         # biblioteca 3D e ícone quase nunca mudam: podem ficar guardados
         resposta.headers["Cache-Control"] = "private, max-age=86400"
     elif caminho in ("/", "/index.html", "/app.js", "/app.css"):
@@ -198,6 +202,7 @@ def configuracao():
     return {
         "googleMapsKey": os.environ.get("GOOGLE_MAPS_KEY", ""),
         "cesiumIonToken": os.environ.get("CESIUM_ION_TOKEN", ""),
+        "gdf": gdf.info(),
     }
 
 
@@ -212,6 +217,18 @@ def previsao_do_tempo():
         return clima.previsao()
     except RuntimeError as erro:
         return JSONResponse({"erro": str(erro)}, status_code=503)
+
+
+@app.get("/gdf/{servico}/{z}/{x}/{y}")
+def foto_aerea_gdf(servico: str, z: int, x: int, y: int):
+    """Bloco de foto aérea do GDF (IDE-DF), já no formato do mapa."""
+    try:
+        corpo, tipo = gdf.bloco(servico, z, x, y)
+    except ValueError as erro:
+        return PlainTextResponse(str(erro), status_code=400)
+    except Exception:
+        return PlainTextResponse("O servidor de imagens do GDF não respondeu.", status_code=502)
+    return Response(corpo, media_type=tipo)
 
 
 @app.get("/")

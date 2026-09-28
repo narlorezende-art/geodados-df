@@ -201,3 +201,60 @@ def test_api_clima_exige_login_e_responde():
     r = c.get("/api/clima")
     assert r.status_code == 200 and r.json()["nx"] == clima.NX
     clima.limpar_cache()
+
+
+# ---------------- fotos aéreas do GDF ----------------
+import gdf  # noqa: E402
+
+BRASILIA_Z12 = (12, 1502, 2229)
+
+
+def test_bbox_e_recorte_do_df():
+    xmin, ymin, xmax, ymax = gdf.bbox_do_bloco(0, 0, 0)
+    assert round(xmin) == -20037508 and round(ymax) == 20037508
+    assert gdf.bloco_no_df(*BRASILIA_Z12)
+    assert not gdf.bloco_no_df(12, 1502 + 60, 2229)
+
+
+def test_bloco_valida_camada_e_usa_cache():
+    gdf.limpar_cache()
+    chamadas = []
+    def falso(s, z, x, y):
+        chamadas.append((s, z, x, y))
+        return b"\xff\xd8img", "image/jpeg"
+    assert gdf.bloco("FOTO_AEREA_2024", *BRASILIA_Z12, baixar=falso)[1] == "image/jpeg"
+    gdf.bloco("FOTO_AEREA_2024", *BRASILIA_Z12, baixar=falso)
+    assert len(chamadas) == 1
+    assert gdf.bloco("FOTO_1964", 12, 1502 + 60, 2229, baixar=falso) == (gdf.VAZIO, "image/png")  # fora do DF
+    assert gdf.bloco("FOTO_1964", 7, 46, 69, baixar=falso) == (gdf.VAZIO, "image/png")  # zoom muito afastado
+    for ruim in [("OUTRA", *BRASILIA_Z12), ("FOTO_1964", 30, 0, 0), ("FOTO_1964", 12, -1, 0)]:
+        try:
+            gdf.bloco(*ruim, baixar=falso)
+            assert False, ruim
+        except ValueError:
+            pass
+    gdf.limpar_cache()
+
+
+def test_rota_gdf_exige_login_e_guarda_no_navegador(monkeypatch):
+    gdf.limpar_cache()
+    monkeypatch.setattr(gdf, "_baixar", lambda s, z, x, y: (b"\xff\xd8img", "image/jpeg"))
+    c = cliente()
+    assert c.get("/gdf/FOTO_AEREA_2024/12/1502/2229").status_code == 401
+    entrar(c)
+    r = c.get("/gdf/FOTO_AEREA_2024/12/1502/2229")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert "max-age=604800" in r.headers["cache-control"]
+    assert c.get("/gdf/NAO_EXISTE/12/1502/2229").status_code == 400
+    assert len(c.get("/api/config").json()["gdf"]) == len(gdf.SERVICOS)
+    gdf.limpar_cache()
+
+
+def test_rota_gdf_falha_com_502(monkeypatch):
+    gdf.limpar_cache()
+    def quebra(*a):
+        raise OSError("fora do ar")
+    monkeypatch.setattr(gdf, "_baixar", quebra)
+    c = cliente()
+    entrar(c)
+    assert c.get("/gdf/FOTO_2009/12/1502/2229").status_code == 502

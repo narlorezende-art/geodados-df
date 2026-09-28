@@ -261,3 +261,20 @@ h3{margin:0;font:600 11.5px "Chakra Petch",sans-serif;letter-spacing:.12em;text-
 .ld-logo{position:relative;width:132px;height:132px;display:grid;place-items:center}
 .ld-logo img{width:120px;height:120px;border-radius:50%;box-shadow:0 0 30px rgba(70,213,229,.25)}
 .ld-logo .spin{position:absolute;inset:0;width:auto;height:auto;border-width:2px}
+
+/* ---------- linha do tempo das fotos históricas ---------- */
+.mt-hist{gap:6px;padding:4px 8px 4px 3px}
+.mt-hist input[type=range]{width:190px}
+.mt-hist button{font-size:15px;line-height:1;padding:2px 7px}
+.hist-val{display:grid;line-height:1.1;min-width:92px}
+.hist-val b{font-size:14px;font-weight:600;color:var(--accent)}
+.hist-val small{font-size:10.5px;color:var(--muted);white-space:nowrap}
+@media (max-width:760px){
+  .maptools{left:8px;align-items:stretch}
+  .mt-group{flex-wrap:wrap}
+  .mt-hist input[type=range]{width:auto;flex:1}
+}
+
+/* ---------- botão de órbita na ficha ---------- */
+.orbit-btn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:4px;font-size:12px;font-weight:600;padding:4px 10px;margin-right:auto}
+.orbit-btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}

@@ -23,7 +23,8 @@ const state = {
   items: [], byId: new Map(),
   types: new Set(Object.keys(TYPES)), dirs: new Set(Object.keys(DIRS)), ras: new Set(), q: "",
   selected: null, listLimit: PAGE, has3D: false, tilted: true, cluster: false, base: "sat",
-  config: { googleMapsKey: "", cesiumIonToken: "" },
+  config: { googleMapsKey: "", cesiumIonToken: "", gdf: [] },
+  gdfList: [], histIndex: 0, gdfLayer: null,
   wx: { data: null, hour: 0, on: { chuva: false, temp: false }, layers: {}, cache: {}, playing: null },
 };
 const $ = (id) => document.getElementById(id);
@@ -184,6 +185,7 @@ async function initGlobe() {
     if (p.id instanceof C.Entity && state.byId.has(p.id.id)) select(p.id.id, true);
   }, C.ScreenSpaceEventType.LEFT_CLICK);
 
+  for (const ev of ["pointerdown", "wheel", "touchstart"]) scene.canvas.addEventListener(ev, () => stopOrbit(), { passive: true });
   viewer.camera.changed.addEventListener(updateAltitude);
   viewer.camera.moveEnd.addEventListener(updateAltitude);
   viewer.camera.percentageChanged = 0.05;
@@ -222,21 +224,56 @@ function updateAltitude() {
   $("sbAlt").textContent = "ALT " + (h > 10000 ? (h / 1000).toFixed(1) + " km" : Math.round(h) + " m");
 }
 
-/* ================= mapas base (Esri, sem chave) ================= */
-function setBase(key) {
-  const C = Cesium, L = viewer.imageryLayers;
-  baseLayers.forEach((l) => L.remove(l, true)); baseLayers = [];
-  tileErrors = 0;
-  const esri = (svc, max = 19) => new C.UrlTemplateImageryProvider({
+/* ================= mapas base ================= */
+const DF_RECT = [-48.35, -16.10, -47.25, -15.45];   // mesmo recorte do servidor (gdf.py)
+const BASE_NOME = {
+  sat: "Satélite Esri", hib: "Satélite Esri + ruas", ruas: "Ruas Esri", escuro: "Mapa escuro Esri",
+  osm: "© colaboradores do OpenStreetMap", gdf: "Foto aérea 2024 · SEDUH/GDF", offline: "Mapa offline",
+};
+let gdfErrors = 0, gdfWarned = false;
+
+function esriProvider(svc, max = 19) {
+  return new Cesium.UrlTemplateImageryProvider({
     url: `https://server.arcgisonline.com/ArcGIS/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`,
     maximumLevel: max, credit: "Esri, Maxar, Earthstar Geographics, colaboradores do OpenStreetMap",
   });
-  const add = (prov) => { watchErrors(prov); baseLayers.push(L.addImageryProvider(prov, baseLayers.length)); };
+}
 
-  if (key === "sat") add(esri("World_Imagery"));
-  if (key === "hib") { add(esri("World_Imagery")); add(esri("Reference/World_Transportation", 18)); add(esri("Reference/World_Boundaries_and_Places", 18)); }
-  if (key === "ruas") add(esri("World_Street_Map"));
-  if (key === "escuro") { add(esri("Canvas/World_Dark_Gray_Base", 16)); add(esri("Canvas/World_Dark_Gray_Reference", 16)); }
+// Fotos aéreas do GDF passam pelo nosso servidor Python (/gdf/...), que já entrega no formato do mapa
+function gdfProvider(servico) {
+  const prov = new Cesium.UrlTemplateImageryProvider({
+    url: `/gdf/${servico}/{z}/{x}/{y}`,
+    rectangle: Cesium.Rectangle.fromDegrees(...DF_RECT),
+    minimumLevel: 8, maximumLevel: 21,
+    credit: "Fotos aéreas e imagens © SEDUH/GDF — IDE-DF",
+  });
+  prov.errorEvent.addEventListener(() => {
+    gdfErrors++;
+    if (gdfErrors >= 10 && !gdfWarned) {
+      gdfWarned = true;
+      toast("O servidor de imagens do GDF está lento ou fora do ar. Fora das áreas carregadas aparece o satélite Esri.");
+    }
+  });
+  return prov;
+}
+
+function setBase(key) {
+  const C = Cesium, L = viewer.imageryLayers;
+  if ((key === "gdf" || key === "hist") && !state.gdfList.length) key = "sat";
+  baseLayers.forEach((l) => L.remove(l, true)); baseLayers = [];
+  tileErrors = 0; gdfErrors = 0; gdfWarned = false;
+  const add = (prov, watch = true) => { if (watch) watchErrors(prov); const l = L.addImageryProvider(prov, baseLayers.length); baseLayers.push(l); return l; };
+
+  if (key === "sat") add(esriProvider("World_Imagery"));
+  if (key === "hib") { add(esriProvider("World_Imagery")); add(esriProvider("Reference/World_Transportation", 18)); add(esriProvider("Reference/World_Boundaries_and_Places", 18)); }
+  if (key === "ruas") add(esriProvider("World_Street_Map"));
+  if (key === "escuro") { add(esriProvider("Canvas/World_Dark_Gray_Base", 16)); add(esriProvider("Canvas/World_Dark_Gray_Reference", 16)); }
+  if (key === "osm") add(new C.UrlTemplateImageryProvider({ url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", maximumLevel: 19, credit: "© colaboradores do OpenStreetMap" }));
+  if (key === "gdf" || key === "hist") {
+    add(esriProvider("World_Imagery"), false);   // fundo fora do DF (opcional: se falhar, não troca o mapa)
+    const svc = key === "gdf" ? "FOTO_AEREA_2024" : state.gdfList[state.histIndex].id;
+    state.gdfLayer = add(gdfProvider(svc), false);
+  } else state.gdfLayer = null;
   if (key === "offline") {
     const lyr = C.ImageryLayer.fromProviderAsync(C.TileMapServiceImageryProvider.fromUrl(C.buildModuleUrl("Assets/Textures/NaturalEarthII")));
     L.add(lyr, 0); baseLayers.push(lyr);
@@ -244,7 +281,41 @@ function setBase(key) {
   state.base = key;
   if (key !== "offline") store.set("base", key);
   document.querySelectorAll("#baseSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.base === key)));
+  $("histBar").hidden = key !== "hist";
+  if (key === "hist") showHistLabel();
+  $("sbBase").textContent = key === "hist" ? histName() : BASE_NOME[key];
   viewer.scene.requestRender();
+}
+
+const histName = () => { const g = state.gdfList[state.histIndex]; return `${g.tipo} ${g.ano} · SEDUH/GDF`; };
+function showHistLabel() {
+  const g = state.gdfList[state.histIndex];
+  $("histYear").value = state.histIndex;
+  $("histAno").textContent = g.ano;
+  $("histTipo").textContent = g.tipo;
+  $("histPrev").disabled = state.histIndex === 0;
+  $("histNext").disabled = state.histIndex === state.gdfList.length - 1;
+}
+
+// Troca o ano sem piscar: a foto nova entra por cima e a antiga sai depois
+let histTimer;
+function setHistYear(i) {
+  i = Math.max(0, Math.min(state.gdfList.length - 1, i));
+  state.histIndex = i;
+  store.set("histIndex", i);
+  showHistLabel();
+  $("sbBase").textContent = histName();
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => {
+    if (state.base !== "hist" || !viewer) return;
+    const L = viewer.imageryLayers, old = state.gdfLayer;
+    gdfErrors = 0; gdfWarned = false;
+    const layer = L.addImageryProvider(gdfProvider(state.gdfList[state.histIndex].id), baseLayers.length);
+    baseLayers.push(layer);
+    state.gdfLayer = layer;
+    if (old) setTimeout(() => { L.remove(old, true); baseLayers = baseLayers.filter((l) => l !== old); viewer.scene.requestRender(); }, 1500);
+    viewer.scene.requestRender();
+  }, 250);
 }
 
 function watchErrors(prov) {
@@ -253,7 +324,7 @@ function watchErrors(prov) {
     if (tileErrors === 12 && !fallbackUsed) {
       fallbackUsed = true;
       setBase("offline");
-      toast("O mapa base não respondeu. Mostrando o mapa offline; tente outro mapa base no painel.");
+      toast("O mapa base não respondeu. Mostrando o mapa offline; tente outro mapa base no canto superior direito.");
     }
   });
 }
@@ -311,14 +382,107 @@ async function groundHeightAt(lon, lat) {
 
 async function flyToItem(it) {
   const C = Cesium, h = await groundHeightAt(it.lon, it.lat);
-  viewer.camera.flyToBoundingSphere(new C.BoundingSphere(C.Cartesian3.fromDegrees(it.lon, it.lat, h), 5), {
-    offset: new C.HeadingPitchRange(viewer.camera.heading, C.Math.toRadians(state.tilted ? -38 : -89.9), state.tilted ? 520 : 900),
+  if (state.selected !== it.id) return;                 // outro medidor foi escolhido enquanto media o chão
+  placeMarkerFx(it, h);
+  stopOrbit();
+  const center = C.Cartesian3.fromDegrees(it.lon, it.lat, h + LIFT / 2);
+  const pitch = C.Math.toRadians(state.tilted ? -32 : -89.9), range = state.tilted ? 420 : 700;
+  viewer.camera.flyToBoundingSphere(new C.BoundingSphere(center, 5), {
+    offset: new C.HeadingPitchRange(viewer.camera.heading, pitch, range),
     duration: 1.6,
+    complete: () => { if (state.selected === it.id && !reduceMotion()) startOrbit(center, pitch, range); updateOrbitBtn(); },
   });
+}
+
+/* ---------- destaque do medidor selecionado: ícone elevado + haste + alvo no chão ---------- */
+const LIFT = 30;                                        // metros acima do chão
+const CYAN = () => Cesium.Color.fromCssColorString("#46D5E5");
+
+function placeMarkerFx(it, h) {
+  const C = Cesium;
+  clearMarkerFx();
+  const ground = C.Cartesian3.fromDegrees(it.lon, it.lat, h);
+  const top = C.Cartesian3.fromDegrees(it.lon, it.lat, h + LIFT);
+  state.fx = [
+    viewer.entities.add({            // haste luminosa do chão até o ícone
+      polyline: {
+        positions: [ground, top], width: 5, arcType: C.ArcType.NONE,
+        material: new C.PolylineGlowMaterialProperty({ glowPower: 0.25, color: CYAN() }),
+        depthFailMaterial: new C.PolylineGlowMaterialProperty({ glowPower: 0.25, color: CYAN().withAlpha(0.45) }),
+      },
+    }),
+    viewer.entities.add({            // alvo no chão marcando a coordenada exata
+      position: ground,
+      ellipse: { semiMajorAxis: 6, semiMinorAxis: 6, material: CYAN().withAlpha(0.22), classificationType: C.ClassificationType.BOTH },
+      point: {
+        pixelSize: 8, color: CYAN(), outlineColor: C.Color.fromCssColorString("#05080B"), outlineWidth: 2,
+        heightReference: C.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    }),
+  ];
+  // o próprio ícone sobe e deixa a via livre
+  const e = it.entity;
+  e.position = top;
+  e.billboard.heightReference = C.HeightReference.NONE;
+  e.label.heightReference = C.HeightReference.NONE;
+  viewer.scene.requestRender();
+}
+
+function clearMarkerFx() {
+  (state.fx || []).forEach((e) => viewer.entities.remove(e));
+  state.fx = [];
+}
+
+/* ---------- órbita lenta em volta do ponto (uma volta a cada ~90 s) ---------- */
+const ORBIT_SECONDS = 90;
+const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let orbit = null;
+
+function startOrbit(center, pitch, range) {
+  const C = Cesium, cam = viewer.camera;
+  stopOrbit();
+  orbit = { center, pitch, range, heading: cam.heading, last: performance.now(), raf: 0 };
+  const step = (t) => {
+    if (!orbit) return;
+    const dt = Math.min(0.25, (t - orbit.last) / 1000); orbit.last = t;
+    orbit.heading += (2 * Math.PI / ORBIT_SECONDS) * dt;
+    cam.lookAt(orbit.center, new C.HeadingPitchRange(orbit.heading, orbit.pitch, orbit.range));
+    viewer.scene.requestRender();
+    orbit.raf = requestAnimationFrame(step);
+  };
+  orbit.raf = requestAnimationFrame(step);
+  updateOrbitBtn();
+}
+
+function stopOrbit() {
+  if (!orbit) return;
+  cancelAnimationFrame(orbit.raf);
+  state.lastOrbit = { center: orbit.center, pitch: orbit.pitch, range: orbit.range };
+  orbit = null;
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);   // devolve a navegação livre
+  updateOrbitBtn();
+}
+
+function toggleOrbit() {
+  if (orbit) return stopOrbit();
+  const it = state.byId.get(state.selected); if (!it) return;
+  if (state.lastOrbit) {
+    // retoma a partir da posição atual da câmera, mantendo distância e inclinação
+    const C = Cesium, cam = viewer.camera, c = state.lastOrbit.center;
+    const range = Math.max(150, C.Cartesian3.distance(cam.positionWC, c));
+    startOrbit(c, Math.min(-0.2, cam.pitch), range);
+  } else flyToItem(it);
+}
+
+function updateOrbitBtn() {
+  const b = $("cOrbit"); if (!b) return;
+  b.setAttribute("aria-pressed", String(!!orbit));
+  b.textContent = orbit ? "Pausar órbita" : "Girar em volta";
 }
 
 function fitVisible(duration = 1.4) {
   if (!viewer) return;
+  stopOrbit();
   const C = Cesium, h = groundHeightGuess(), vis = visibleItems();
   if (!vis.length) return;
   const bs = C.BoundingSphere.fromPoints(vis.map((it) => C.Cartesian3.fromDegrees(it.lon, it.lat, h)));
@@ -335,6 +499,13 @@ function zoomToEntities(ents) {
 
 function toggleTilt() {
   const C = Cesium, scene = viewer.scene, cam = viewer.camera;
+  if (orbit) {                       // em órbita: só muda a inclinação e continua girando
+    state.tilted = !state.tilted;
+    $("btnTilt").setAttribute("aria-pressed", String(state.tilted));
+    $("btnTilt").textContent = state.tilted ? "Inclinada" : "De cima";
+    orbit.pitch = C.Math.toRadians(state.tilted ? -32 : -89.9);
+    return;
+  }
   state.tilted = !state.tilted;
   $("btnTilt").setAttribute("aria-pressed", String(state.tilted));
   $("btnTilt").textContent = state.tilted ? "Inclinada" : "De cima";
@@ -697,7 +868,21 @@ function buildUI() {
     const b = e.target.closest("button[data-base]"); if (!b || !viewer || b.disabled) return;
     fallbackUsed = false; setBase(b.dataset.base);
   });
+  // fotos do GDF: lista de anos vem do servidor
+  state.gdfList = state.config.gdf || [];
+  if (!state.gdfList.length) document.querySelectorAll('#baseSeg [data-base="gdf"], #baseSeg [data-base="hist"]').forEach((b) => (b.hidden = true));
+  else {
+    const idx1991 = state.gdfList.findIndex((g) => g.ano === "1991");
+    state.histIndex = Math.min(state.gdfList.length - 1, store.get("histIndex", idx1991 >= 0 ? idx1991 : 0));
+    $("histYear").max = state.gdfList.length - 1;
+    $("histYear").addEventListener("input", (e) => setHistYear(Number(e.target.value)));
+    $("histPrev").onclick = () => setHistYear(state.histIndex - 1);
+    $("histNext").onclick = () => setHistYear(state.histIndex + 1);
+  }
+
+  // 3D só aparece quando há chave configurada no Render
   const can3D = state.config.googleMapsKey || state.config.cesiumIonToken;
+  $("btn3d").hidden = !can3D;
   $("btn3d").disabled = !can3D;
   $("btn3d").title = can3D
     ? (state.config.googleMapsKey ? "Prédios fotorrealistas do Google" : "Relevo e prédios (Cesium ion)")
@@ -713,6 +898,7 @@ function buildUI() {
 
   // ficha
   $("cardClose").onclick = closeCard;
+  $("cOrbit").onclick = () => viewer && toggleOrbit();
   $("cCopy").onclick = async () => {
     const txt = $("cXY").textContent;
     try { await navigator.clipboard.writeText(txt); toast("Coordenadas copiadas."); }
@@ -809,19 +995,28 @@ function select(id, fly) {
   fillCardWx(it);
   $("card").hidden = false;
   document.querySelectorAll("#results [data-id]").forEach((b) => (b.dataset.id === id ? b.setAttribute("aria-current", "true") : b.removeAttribute("aria-current")));
+  state.lastOrbit = null;
+  if (viewer) { stopOrbit(); placeMarkerFx(it, 0); }   // destaque imediato; ajusta a altura do chão no voo
+  updateOrbitBtn();
   if (fly && viewer) flyToItem(it);
 }
 
 function unmark(id) {
   const it = state.byId.get(id);
   if (it && it.entity) {
+    const C = Cesium;
+    it.entity.position = C.Cartesian3.fromDegrees(it.lon, it.lat);       // volta para o chão
+    it.entity.billboard.heightReference = C.HeightReference.CLAMP_TO_GROUND;
+    it.entity.label.heightReference = C.HeightReference.CLAMP_TO_GROUND;
     it.entity.billboard.image = state.icons[it.t].n;
     it.entity.billboard.width = it.entity.billboard.height = 28;
     it.entity.label.show = false;
   }
+  if (viewer) clearMarkerFx();
 }
 
 function closeCard() {
+  if (viewer) stopOrbit();
   if (state.selected) unmark(state.selected);
   state.selected = null;
   $("card").hidden = true;

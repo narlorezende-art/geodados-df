@@ -20,6 +20,7 @@ import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeout
 
 CENTRO = (-15.79, -47.88)       # Brasília
 RAIO_NM = 60                    # ~110 km: DF e entorno
@@ -63,10 +64,17 @@ def _get_json(url: str, headers: dict | None = None, timeout: int = 12):
 
 # ---------------- fontes ----------------
 
-def _readsb(dados: dict) -> list[dict]:
+_meta: dict = {}   # o que cada rede respondeu (para diagnóstico)
+
+
+def _readsb(dados: dict, nome: str = "") -> list[dict]:
     """Converte o formato readsb (usado por adsb.lol e adsb.fi)."""
+    lista_bruta = dados.get("ac") or dados.get("aircraft") or []
+    if nome:
+        _meta[nome] = {"campos": sorted(dados.keys())[:8], "total_na_resposta": len(lista_bruta),
+                       "msg": str(dados.get("msg") or dados.get("message") or "")[:60]}
     saida = []
-    for a in dados.get("ac") or dados.get("aircraft") or []:
+    for a in lista_bruta:
         if a.get("lat") is None or a.get("lon") is None:
             continue
         alt = a.get("alt_geom", a.get("alt_baro"))
@@ -89,12 +97,12 @@ def _readsb(dados: dict) -> list[dict]:
 
 def _adsblol() -> list[dict]:
     lat, lon = CENTRO
-    return _readsb(_get_json(f"https://api.adsb.lol/v2/point/{lat}/{lon}/{RAIO_NM}"))
+    return _readsb(_get_json(f"https://api.adsb.lol/v2/point/{lat}/{lon}/{RAIO_NM}"), "adsb.lol")
 
 
 def _adsbfi() -> list[dict]:
     lat, lon = CENTRO
-    return _readsb(_get_json(f"https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{RAIO_NM}"))
+    return _readsb(_get_json(f"https://opendata.adsb.fi/api/v3/lat/{lat}/lon/{lon}/dist/{RAIO_NM}"), "adsb.fi")
 
 
 def _opensky_token() -> str | None:
@@ -122,7 +130,8 @@ def _opensky() -> list[dict]:
     la0, lo0, la1, lo1 = BBOX
     url = f"https://opensky-network.org/api/states/all?lamin={la0}&lomin={lo0}&lamax={la1}&lomax={lo1}&extended=1"
     tok = _opensky_token()
-    dados = _get_json(url, {"Authorization": f"Bearer {tok}"} if tok else None)
+    dados = _get_json(url, {"Authorization": f"Bearer {tok}"} if tok else None, timeout=30)
+    _meta["OpenSky"] = {"total_na_resposta": len(dados.get("states") or [])}
     agora = dados.get("time") or time.time()
     saida = []
     for s in dados.get("states") or []:
@@ -180,21 +189,33 @@ def juntar(listas: list[list[dict]]) -> list[dict]:
     return list(melhor.values())
 
 
-def _consultar(nome, buscar, agora):
-    """Consulta uma rede respeitando o intervalo dela; devolve a lista (com idade atualizada) ou None."""
-    info = _por_fonte.setdefault(nome, {"quando": 0.0, "lista": None, "pausa_ate": 0.0, "erro": ""})
-    if agora < info["pausa_ate"]:
-        pass
-    elif agora - info["quando"] >= _intervalo(nome) or info["lista"] is None:
+_exec = ThreadPoolExecutor(max_workers=6)
+ESPERA = 10   # s: quanto o mapa espera por cada rede; a lenta continua em segundo plano
+
+
+def _consultar(nome, buscar, agora, espera=None):
+    """Consulta uma rede respeitando o intervalo dela; devolve a lista (com idade atualizada) ou None.
+    Se a rede demorar, a consulta segue em segundo plano e o resultado entra na próxima atualização."""
+    info = _por_fonte.setdefault(nome, {"quando": 0.0, "lista": None, "pausa_ate": 0.0, "erro": "", "futuro": None})
+    devida = agora >= info["pausa_ate"] and (agora - info["quando"] >= _intervalo(nome) or info["lista"] is None)
+    if devida and info.get("futuro") is None:
+        info["futuro"] = _exec.submit(buscar)
+        info["pedido_em"] = agora
+    fut = info.get("futuro")
+    if fut is not None:
         try:
-            info["lista"] = buscar()
-            info["quando"] = agora
+            info["lista"] = fut.result(timeout=ESPERA if espera is None else espera)
+            info["quando"] = info.get("pedido_em", agora)
             info["erro"] = ""
+            info["futuro"] = None
+        except FuturesTimeout:
+            info["erro"] = "aguardando resposta (lenta)"
         except Exception as e:
             codigo = getattr(e, "code", None)
             motivo = getattr(e, "reason", "") or str(e)[:80]
             info["erro"] = f"{e.__class__.__name__} {codigo or ''} {motivo}".strip()
-            info["pausa_ate"] = agora + (600 if codigo in (401, 403, 429) else 30)   # cota estourada: descansa
+            info["pausa_ate"] = agora + (600 if codigo in (401, 403, 429) else 60)   # cota estourada: descansa
+            info["futuro"] = None
     if info["lista"] is None:
         return None
     passou = agora - info["quando"]
@@ -216,6 +237,7 @@ def aeronaves(fontes=None) -> dict:
             dados = {
                 "fonte": " + ".join(n for n, _ in ok), "hora": int(agora), "aeronaves": lista,
                 "por_fonte": {n: (len(l) if l is not None else _por_fonte.get(n, {}).get("erro") or "sem dados") for n, l in resultados},
+                "diagnostico": {"raio_km": round(RAIO_NM * 1.852), "centro": CENTRO, "respostas": dict(_meta)},
             }
             _cache.update(quando=agora, dados=dados)
             return dados

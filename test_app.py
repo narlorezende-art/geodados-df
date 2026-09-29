@@ -333,7 +333,7 @@ def test_soma_redes_e_informa_por_fonte():
         raise OSError("fora")
     d = aereo.aeronaves([("adsb.lol", a), ("adsb.fi", b), ("OpenSky", c)])
     assert d["fonte"] == "adsb.lol + adsb.fi" and len(d["aeronaves"]) == 2
-    assert d["por_fonte"]["adsb.lol"] == 1 and d["por_fonte"]["OpenSky"] == "OSError"
+    assert d["por_fonte"]["adsb.lol"] == 1 and d["por_fonte"]["OpenSky"].startswith("OSError")
     aereo.limpar_cache()
 
 

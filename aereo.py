@@ -191,8 +191,9 @@ def _consultar(nome, buscar, agora):
             info["quando"] = agora
             info["erro"] = ""
         except Exception as e:
-            info["erro"] = e.__class__.__name__
             codigo = getattr(e, "code", None)
+            motivo = getattr(e, "reason", "") or str(e)[:80]
+            info["erro"] = f"{e.__class__.__name__} {codigo or ''} {motivo}".strip()
             info["pausa_ate"] = agora + (600 if codigo in (401, 403, 429) else 30)   # cota estourada: descansa
     if info["lista"] is None:
         return None

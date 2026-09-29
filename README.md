@@ -155,7 +155,7 @@ Ao entrar, o mapa abre em vista inclinada do DF com **todas as camadas desligada
 | `WAZE_FEED_URL` | Liga a camada do Waze. É a URL do feed no Partner Hub (Toolbox → Waze Data Feed), a que termina em `?format=1` | `https://www.waze.com/row-partnerhub-api/partners/…/waze-feeds/…?format=1` |
 | `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | Opcional. Aumenta o limite da fonte reserva de voos | — |
 
-Cores dos órgãos: **DETRAN** em amarelo marca-texto, **PRF** em bege, **PMDF** em azul, **CBMDF** em vermelho e os demais em lilás. Helicópteros sem órgão ficam em âmbar; aviões, em branco.
+Cores dos órgãos: **DETRAN** em amarelo marca-texto, **PRF** em bege, **PMDF** em azul, **CBMDF** em vermelho, **PCDF** em verde e os demais em lilás. Helicópteros sem órgão ficam em âmbar; aviões, em branco.
 
 **Limites das fontes:**
 - Nem toda aeronave transmite ADS-B, e aeronaves de segurança pública às vezes desligam ou filtram o sinal. A camada mostra só o que as antenas comunitárias captam.

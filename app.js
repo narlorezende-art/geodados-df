@@ -789,7 +789,7 @@ function closeSatMenu() {
 
 /* ================= tráfego aéreo (ADS-B) ================= */
 const DF_SOLO = 1050;                    // altitude média do terreno no DF (m), usada sem relevo 3D
-const ORGAO_COR = { DETRAN: "#E4FF1A", PRF: "#D8C7A3", PMDF: "#5B8CFF", CBMDF: "#FF4B3E" };   // DETRAN: amarelo marca-texto; PRF: bege
+const ORGAO_COR = { DETRAN: "#E4FF1A", PRF: "#D8C7A3", PMDF: "#5B8CFF", CBMDF: "#FF4B3E", PCDF: "#2FD27A" };   // DETRAN: amarelo marca-texto; PRF: bege; PCDF: verde
 const MODELO_DIST = 15000;              // até 15 km da câmera: modelo 3D; mais longe: ícone
 const AR_DE_DIA = "#DCE7EE";
 const orgaoCor = (o) => ORGAO_COR[o] || (o ? "#B98CFF" : null);

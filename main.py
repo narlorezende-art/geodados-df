@@ -39,6 +39,8 @@ PAINEL = {  # únicos arquivos da pasta que o navegador pode receber
     "app.js": "text/javascript",
     "app.css": "text/css",
     "logo.png": "image/png",  # logo institucional: só aparece depois do login
+    "heli.glb": "model/gltf-binary",   # modelos 3D das aeronaves (camada Tráfego aéreo)
+    "aviao.glb": "model/gltf-binary",
 }
 
 COOKIE = "gd_session"
@@ -124,8 +126,8 @@ async def exigir_login(request: Request, call_next):
     elif caminho.startswith("/gdf/"):
         # fotos aéreas não mudam: o navegador pode guardar por 7 dias
         resposta.headers["Cache-Control"] = "private, max-age=604800"
-    elif caminho.startswith(("/cesium/", "/favicon", "/logo.png")):
-        # biblioteca 3D e ícone quase nunca mudam: podem ficar guardados
+    elif caminho.startswith(("/cesium/", "/favicon", "/logo.png", "/heli.glb", "/aviao.glb")):
+        # biblioteca 3D, ícone e modelos quase nunca mudam: podem ficar guardados
         resposta.headers["Cache-Control"] = "private, max-age=86400"
     elif caminho in ("/", "/index.html", "/app.js", "/app.css"):
         # painel: o navegador sempre confere se há versão nova (evita misturar versões)

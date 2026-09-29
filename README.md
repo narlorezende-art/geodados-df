@@ -141,7 +141,7 @@ Ao entrar, o mapa abre em vista inclinada do DF com **todas as camadas desligada
 
 | Camada | Fonte | O que mostra |
 |---|---|---|
-| **Tráfego aéreo** | adsb.lol + [adsb.fi](https://adsb.fi) + OpenSky, somados (cada rede tem antenas diferentes) | Aeronaves num raio de ~110 km, em 3D na altitude real, com o rumo. Helicópteros e aeronaves dos órgãos ganham ícone próprio, haste até o chão e rastro. Atualiza a cada 10 s |
+| **Tráfego aéreo** | adsb.lol + [adsb.fi](https://adsb.fi) + OpenSky, somados (cada rede tem antenas diferentes) | Aeronaves num raio de ~110 km, em 3D na altitude real, com o rumo. Até 15 km da câmera aparecem como **modelos 3D** (helicóptero com rotor girando e avião, arquivos `heli.glb` e `aviao.glb`); mais longe, como ícones. Helicópteros e aeronaves dos órgãos ganham haste até o chão e rastro. Atualiza a cada 10 s |
 | **Trânsito em tempo real** | TomTom Traffic Flow | Fluxo nas vias, de verde (livre) a vermelho-escuro (parado). Atualiza a cada 2 min |
 | **Waze · ocorrências** | Waze for Cities (Data Feed) | Acidentes, alagamentos, clima na via, perigos (inclui semáforo com defeito e buraco), interdições e obras, polícia e congestionamentos em linha, com liga/desliga por categoria. Atualiza a cada 2 min |
 | **Focos de queimada** | INPE, Programa Queimadas | Focos de calor por satélite no DF e entorno nas últimas 48 h, com cor por idade |
@@ -150,12 +150,12 @@ Ao entrar, o mapa abre em vista inclinada do DF com **todas as camadas desligada
 
 | Variável | Para quê | Exemplo |
 |---|---|---|
-| `FROTA` | Aeronaves de órgãos em destaque, com nome e cor. Aceita matrícula ou código hex (ICAO), separados por `;` | `PR-ABC:PMDF;PR-XYZ:CBMDF;PP-DEF:DETRAN` |
+| `FROTA` | Aeronaves de órgãos em destaque, com nome e cor. Aceita matrícula ou código hex (ICAO), separados por `;` | `PR-ABC:PMDF;PR-XYZ:CBMDF;PP-DEF:DETRAN;PR-GHI:PRF` |
 | `TOMTOM_KEY` | Liga a camada de trânsito. Chave gratuita em developer.tomtom.com | `abc123…` |
 | `WAZE_FEED_URL` | Liga a camada do Waze. É a URL do feed no Partner Hub (Toolbox → Waze Data Feed), a que termina em `?format=1` | `https://www.waze.com/row-partnerhub-api/partners/…/waze-feeds/…?format=1` |
 | `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | Opcional. Aumenta o limite da fonte reserva de voos | — |
 
-Cores dos órgãos: **DETRAN** em ciano, **PMDF** em azul, **CBMDF** em vermelho e os demais em lilás. Helicópteros sem órgão ficam em amarelo; aviões, em branco.
+Cores dos órgãos: **DETRAN** em amarelo marca-texto, **PRF** em bege, **PMDF** em azul, **CBMDF** em vermelho e os demais em lilás. Helicópteros sem órgão ficam em âmbar; aviões, em branco.
 
 **Limites das fontes:**
 - Nem toda aeronave transmite ADS-B, e aeronaves de segurança pública às vezes desligam ou filtram o sinal. A camada mostra só o que as antenas comunitárias captam.

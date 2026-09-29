@@ -128,6 +128,17 @@ def test_logo_so_depois_do_login():
     assert r.status_code == 200 and r.headers["content-type"] == "image/png"
 
 
+def test_modelos_3d_so_depois_do_login():
+    c = cliente()
+    for arq in ("/heli.glb", "/aviao.glb"):
+        assert c.get(arq).status_code == 401
+    entrar(c)
+    for arq in ("/heli.glb", "/aviao.glb"):
+        r = c.get(arq)
+        assert r.status_code == 200 and r.headers["content-type"] == "model/gltf-binary", arq
+        assert r.content[:4] == b"glTF" and "max-age=86400" in r.headers["cache-control"]
+
+
 def test_cabecalhos_de_seguranca():
     c = cliente()
     r = c.get("/login")

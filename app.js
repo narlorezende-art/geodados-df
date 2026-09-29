@@ -125,6 +125,13 @@ async function initGlobe() {
   scene.skyAtmosphere.show = true;
   scene.fog.enabled = true;
   viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(C.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+  // luz fixa "de dia" sobre o DF: os modelos 3D das aeronaves ficam nítidos mesmo à noite
+  {
+    const enu = C.Transforms.eastNorthUpToFixedFrame(C.Cartesian3.fromDegrees(-47.88, -15.79));
+    const dir = C.Matrix4.multiplyByPointAsVector(enu, new C.Cartesian3(0.35, 0.45, -1), new C.Cartesian3());
+    scene.light = new C.DirectionalLight({ direction: C.Cartesian3.normalize(dir, dir), intensity: 2.2 });
+  }
+  viewer.clock.shouldAnimate = true;   // gira os rotores (não força redesenho: maximumRenderTimeChange = ∞)
 
   setBase(store.get("base", "sat"));
   viewer.camera.setView({
@@ -782,7 +789,9 @@ function closeSatMenu() {
 
 /* ================= tráfego aéreo (ADS-B) ================= */
 const DF_SOLO = 1050;                    // altitude média do terreno no DF (m), usada sem relevo 3D
-const ORGAO_COR = { DETRAN: "#46D5E5", PMDF: "#5B8CFF", CBMDF: "#FF4B3E" };
+const ORGAO_COR = { DETRAN: "#E4FF1A", PRF: "#D8C7A3", PMDF: "#5B8CFF", CBMDF: "#FF4B3E" };   // DETRAN: amarelo marca-texto; PRF: bege
+const MODELO_DIST = 15000;              // até 15 km da câmera: modelo 3D; mais longe: ícone
+const AR_DE_DIA = "#DCE7EE";
 const orgaoCor = (o) => ORGAO_COR[o] || (o ? "#B98CFF" : null);
 const air = { on: false, ds: null, timer: 0, tick: 0, ents: new Map(), data: null, heli: true, aviao: true };
 
@@ -799,9 +808,10 @@ function heliSVG(color, size = 34) {
     <path d="M20 24.5v11M16.5 35.5h7" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
     <circle cx="20" cy="14.5" r="2.2" fill="#05080B" opacity=".55"/></svg>`;
 }
+const airCor = (a) => orgaoCor(a.orgao) || (a.heli ? "#F2B84B" : AR_DE_DIA);
 const airIcons = new Map();
 function airIcon(a) {
-  const cor = orgaoCor(a.orgao) || (a.heli ? "#F2B84B" : "#DCE7EE");
+  const cor = airCor(a);
   const key = (a.heli ? "h" : "p") + cor;
   if (!airIcons.has(key)) airIcons.set(key, svgURL(a.heli ? heliSVG(cor) : planeSVG(cor)));
   return airIcons.get(key);
@@ -815,7 +825,12 @@ function toggleAir(on) {
     air.ds.show = true;
     pollAir();
     air.timer = setInterval(pollAir, 10000);
-    air.tick = setInterval(() => viewer.scene.requestRender(), 250);   // movimento suave entre atualizações
+    // movimento suave entre atualizações; de perto (modelos 3D, rotor girando) redesenha 20×/s, de longe 4×/s
+    let n = 0;
+    air.tick = setInterval(() => {
+      const perto = viewer.camera.positionCartographic.height < MODELO_DIST + 5000;
+      if (perto || ++n % 5 === 0) viewer.scene.requestRender();
+    }, 50);
   } else {
     clearInterval(air.timer); clearInterval(air.tick);
     if (air.ds) air.ds.entities.removeAll();
@@ -860,11 +875,21 @@ function drawAir(d) {
           image: airIcon(a), width: a.heli ? 34 : 24, height: a.heli ? 34 : 24,
           rotation: 0, alignedAxis: C.Cartesian3.UNIT_Z, disableDepthTestDistance: Number.POSITIVE_INFINITY,
           scaleByDistance: new C.NearFarScalar(2000, 1.2, 150000, 0.6),
+          distanceDisplayCondition: new C.DistanceDisplayCondition(MODELO_DIST, Number.POSITIVE_INFINITY),
         },
+        // de perto: modelo 3D próprio (heli.glb / aviao.glb), branco pintado na cor do órgão, apontando para o rumo
+        model: {
+          uri: a.heli ? "/heli.glb" : "/aviao.glb", minimumPixelSize: a.heli ? 64 : 56, maximumScale: 400,
+          color: C.Color.fromCssColorString(airCor(a)), colorBlendMode: C.ColorBlendMode.HIGHLIGHT,
+          distanceDisplayCondition: new C.DistanceDisplayCondition(0, MODELO_DIST), runAnimations: true,
+        },
+        orientation: new C.CallbackProperty(() => C.Transforms.headingPitchRollQuaternion(
+          airPosition(r.fix), new C.HeadingPitchRoll(C.Math.toRadians(r.fix.rumo || 0) - Math.PI / 2, 0, 0)), false),
         label: {
           text: airLabel(a), show: !!destaque, font: "600 11.5px 'IBM Plex Mono', monospace",
           fillColor: C.Color.fromCssColorString(orgaoCor(a.orgao) || "#F2B84B"), outlineColor: C.Color.fromCssColorString("#05080B"), outlineWidth: 3,
           style: C.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new C.Cartesian2(0, -24), disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          pixelOffsetScaleByDistance: new C.NearFarScalar(60, 3.2, 1500, 1),   // de perto, sobe acima do modelo 3D
           scaleByDistance: new C.NearFarScalar(2000, 1, 150000, 0.7),
         },
         polyline: destaque ? {   // haste até o chão, como nos medidores
@@ -884,6 +909,7 @@ function drawAir(d) {
     } else {
       r.fix = fix;
       r.ent.billboard.image = airIcon(a);
+      r.ent.model.color = Cesium.Color.fromCssColorString(airCor(a));
       r.ent.label.text = airLabel(a);
     }
     r.ent.billboard.rotation = -C.Math.toRadians(a.rumo || 0);
